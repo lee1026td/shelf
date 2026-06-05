@@ -24,10 +24,10 @@ class SlashCommand:
 # Ordered for display: available-now first, then by the phase that delivers them.
 SLASH_COMMANDS: tuple[SlashCommand, ...] = (
     SlashCommand("status", "Show library status (sources / inbox / review)"),
+    SlashCommand("clip", "Save a URL (http/https/file) as an Item"),
+    SlashCommand("import", "Import local PDF/HTML/Markdown/text into Items"),
     SlashCommand("help", "List commands"),
     SlashCommand("exit", "Leave the REPL"),
-    SlashCommand("clip", "Save a URL / clipboard article", 1),
-    SlashCommand("import", "Import local PDF/HTML/Markdown", 1),
     SlashCommand("ask", "Citation-backed Q&A over the library", 2),
     SlashCommand("model", "Configure OpenAI-compatible models", 2),
     SlashCommand("explore", "Discover sources + initial research for a topic", 3),

@@ -13,6 +13,14 @@ def _rec() -> Console:
     return Console(record=True, width=100)
 
 
+def test_clip_import_registered_as_available_now():
+    from shelf.repl.commands import COMMANDS_BY_NAME
+
+    assert COMMANDS_BY_NAME["clip"].available is True
+    assert COMMANDS_BY_NAME["import"].available is True
+    assert COMMANDS_BY_NAME["ask"].available is False  # still Phase 2
+
+
 def test_status_runs_for_real(workspace):
     console = _rec()
     session = ReplSession(workspace, console=console)
