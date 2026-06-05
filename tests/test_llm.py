@@ -138,3 +138,40 @@ def test_ask_library_includes_item_context(workspace):
     assert answer == "based on your items..."
     _base, _model, messages = client.calls[0]
     assert "Local agents" in messages[-1]["content"]  # library context grounded the prompt
+
+
+# --- model selection -------------------------------------------------------
+
+
+def test_gateway_list_models():
+    models = ModelGateway(_cfg(), client=FakeChatClient()).list_models("planner")
+    assert "qwen3:8b" in models
+
+
+def test_client_list_models_parses(monkeypatch):
+    client = OpenAICompatibleClient()
+    monkeypatch.setattr(client, "_get", lambda url, api_key: {"data": [{"id": "a"}, {"id": "b"}]})
+    assert client.list_models("http://x/v1") == ["a", "b"]
+
+
+def test_set_model_persists_both_roles(workspace):
+    from shelf.services import set_model
+
+    set_model(workspace, "planner", model="qwen3:8b")
+    set_model(workspace, "embeddings", model="bge-m3", base_url="http://localhost:11434/v1")
+    cfg = load_config(workspace.config_path)
+    assert cfg.models["planner"].model == "qwen3:8b"
+    assert cfg.models["planner"].base_url == "http://localhost:11434/v1"  # preserved
+    assert cfg.models["embeddings"].model == "bge-m3"
+    assert cfg.models["embeddings"].base_url == "http://localhost:11434/v1"
+
+
+def test_set_model_to_remote_endpoint(workspace):
+    from shelf.services import set_model
+
+    set_model(workspace, "planner", model="gpt-4o-mini", base_url="https://api.openai.com/v1")
+    cfg = load_config(workspace.config_path)
+    assert cfg.models["planner"].base_url == "https://api.openai.com/v1"
+    # ...but still blocked unless remote_llm is enabled (egress gate)
+    with pytest.raises(LLMError):
+        ModelGateway(cfg, client=FakeChatClient()).complete("hi")

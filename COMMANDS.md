@@ -21,7 +21,7 @@ default path is a guided flow.
 | `shelf inbox` | `/inbox` | ✅ | List newly collected items (status='new'). `--limit`. |
 | `shelf search Q` | `/search` | ✅ | Keyword search over items (title/summary/url). |
 | `shelf sources` | `/sources` | ✅ | List the source universe by status. |
-| `shelf model` | `/model` | ✅ | Show model profiles + probe the endpoint. `--no-probe`. |
+| `shelf model [list\|set\|use]` | `/model` | ✅ | Show/probe; `list [role]`, `set <role> <model> [--base-url]`, `use <model>`. Selects chat **and** embedding models. Works with any OpenAI-compatible endpoint (remote needs `privacy.remote_llm: true` + `$SHELF_API_KEY`). |
 | `shelf ask Q` | `/ask` | ✅ | Answer a question grounded in the library (also: type free text in the REPL). |
 | `shelf summarize ID` | `/summarize` | ✅ | LLM-summarize an item and store the summary. |
 | `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |

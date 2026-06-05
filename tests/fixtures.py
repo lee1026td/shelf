@@ -69,3 +69,6 @@ class FakeChatClient:
 
     def embeddings(self, base_url, model, texts, *, api_key=None):
         return [self.embedding for _ in texts]
+
+    def list_models(self, base_url, *, api_key=None):
+        return ["qwen3:32b", "qwen3:8b", "nomic-embed-text", "bge-m3"]

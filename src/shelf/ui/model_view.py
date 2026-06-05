@@ -33,3 +33,19 @@ def render_models(console: Console, config: Config, probe: ProbeResult | None = 
             console.print(
                 f"planner endpoint not reachable: {probe.error}", style="yellow", highlight=False
             )
+
+
+def render_model_list(console: Console, role: str, base_url: str, models: list[str]) -> None:
+    console.print(
+        f"models available for '{role}' at {base_url}:", style="bold cyan", highlight=False
+    )
+    if not models:
+        console.print("  (endpoint returned no models)", style="dim")
+        return
+    for model in models:
+        console.print(f"  - {model}", highlight=False)
+    console.print(
+        f"Select one:  /model set {role} <model>   (or `shelf model set {role} <model>`)",
+        style="dim",
+        highlight=False,
+    )

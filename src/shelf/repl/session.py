@@ -27,12 +27,12 @@ from shelf.repl.commands import (
     HELP_ALIASES,
     SLASH_COMMANDS,
 )
-from shelf.services import gather_status
+from shelf.services import gather_status, set_model
 from shelf.store import Store
 from shelf.ui.console import console as default_console
 from shelf.ui.ingest_view import render_clip_outcome, render_import_outcome
 from shelf.ui.library_view import render_items, render_sources
-from shelf.ui.model_view import render_models
+from shelf.ui.model_view import render_model_list, render_models
 from shelf.ui.status_view import render_status, status_bar_line
 from shelf.workspace import Workspace
 
@@ -126,7 +126,7 @@ class ReplSession:
             "mute": lambda arg: self._set_item_status(arg, "muted"),
             "ask": self._handle_ask,
             "summarize": self._handle_summarize,
-            "model": lambda _arg: self._handle_model(),
+            "model": self._handle_model,
         }
 
     def _handle_text(self, text: str) -> None:
@@ -163,10 +163,47 @@ class ReplSession:
             return
         self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False)
 
-    def _handle_model(self) -> None:
-        gateway = self._get_gateway()
-        config = load_config(self.workspace.config_path)
-        render_models(self.console, config, gateway.probe("planner"))
+    def _handle_model(self, arg: str = "") -> None:
+        tokens = arg.split()
+        sub = tokens[0].lower() if tokens else ""
+
+        if not sub:  # /model -> show profiles + probe
+            config = load_config(self.workspace.config_path)
+            render_models(self.console, config, self._get_gateway().probe("planner"))
+            return
+
+        if sub == "list":  # /model list [role]
+            role = tokens[1] if len(tokens) > 1 else "planner"
+            try:
+                models = self._get_gateway().list_models(role)
+            except ShelfError as exc:
+                self.console.print(f"Error: {exc}", style="red")
+                return
+            config = load_config(self.workspace.config_path)
+            base_url = config.models[role].base_url if role in config.models else "?"
+            render_model_list(self.console, role, base_url, models)
+            return
+
+        if sub == "set" and len(tokens) >= 3:  # /model set <role> <model> [base_url]
+            self._apply_model(tokens[1], tokens[2], tokens[3] if len(tokens) > 3 else None)
+            return
+
+        if sub == "use" and len(tokens) >= 2:  # /model use <model> (planner shorthand)
+            self._apply_model("planner", tokens[1], None)
+            return
+
+        self.console.print(
+            "Usage: /model | /model list [role] | /model set <role> <model> [base_url] | "
+            "/model use <model>",
+            style="yellow",
+        )
+
+    def _apply_model(self, role: str, model: str, base_url: str | None) -> None:
+        profile = set_model(self.workspace, role, model=model, base_url=base_url)
+        self._gateway = None  # rebuild from the new config on next use
+        self.console.print(
+            f"{role} -> {profile.model} @ {profile.base_url}", style="green", highlight=False
+        )
 
     def _handle_clip(self, arg: str) -> None:
         if not arg:

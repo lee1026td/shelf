@@ -96,6 +96,9 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [x] `ModelGateway` — role profiles, `complete`/`embed`, capability `probe`
 - [x] Egress gate: localhost allowed; remote endpoint requires `privacy.remote_llm`
 - [x] `/model` (show profiles + probe) — REPL + `shelf model` (`--no-probe`)
+- [x] Model **selection** (chat + embeddings): `/model list [role]`, `/model set <role>
+      <model> [base_url]`, `/model use <model>` — persisted to config (REPL + CLI)
+- [x] Works with local **and** remote OpenAI-compatible endpoints (remote opt-in)
 - [x] `/summarize <id>` — LLM summary of an Item, persisted — REPL + `shelf summarize`
 - [x] `/ask <q>` + free-text chat — library-grounded answer — REPL + `shelf ask`
 - [ ] Summary-on-clip/import (opt-in), streaming, keyring-backed API keys (later)

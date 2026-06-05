@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shelf import __version__
 from shelf.cli.app import app
+from shelf.config import load_config
 from shelf.store import Store
 from shelf.workspace import resolve_workspace
 
@@ -156,3 +157,14 @@ def test_model_command_shows_profiles(runner, tmp_path):
     # Role names survive the 80-col table; the model id can be truncated by Rich.
     assert "planner" in result.output
     assert "embeddings" in result.output
+
+
+def test_model_set_cli_persists(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    result = runner.invoke(
+        app, ["model", "set", "embeddings", "bge-m3", "--workspace", str(lib)]
+    )
+    assert result.exit_code == 0, result.output
+    ws = resolve_workspace(explicit=lib)
+    assert load_config(ws.config_path).models["embeddings"].model == "bge-m3"

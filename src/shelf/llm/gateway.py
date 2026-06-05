@@ -96,6 +96,14 @@ class ModelGateway:
             profile.base_url, profile.model, texts, api_key=self._api_key
         )
 
+    def list_models(self, role: str = "planner") -> list[str]:
+        """List model ids the role's endpoint offers (GET /models). Needs only a base_url."""
+        profile = self._config.models.get(role)
+        if profile is None or not profile.base_url:
+            raise LLMError(f"No endpoint configured for role '{role}'.")
+        self._check_egress(profile)
+        return self._client.list_models(profile.base_url, api_key=self._api_key)
+
     def probe(self, role: str = "planner") -> ProbeResult:
         """Best-effort reachability check; never raises."""
         try:

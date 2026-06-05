@@ -33,7 +33,7 @@ SLASH_COMMANDS: tuple[SlashCommand, ...] = (
     SlashCommand("mute", "Mute an item: /mute <id>"),
     SlashCommand("ask", "Ask a question grounded in the library (or just type it)"),
     SlashCommand("summarize", "LLM-summarize an item: /summarize <id>"),
-    SlashCommand("model", "Show model profiles + probe the endpoint"),
+    SlashCommand("model", "Models: /model | list [role] | set <role> <model> | use <model>"),
     SlashCommand("help", "List commands"),
     SlashCommand("exit", "Leave the REPL"),
     SlashCommand("explore", "Discover sources + initial research for a topic", 3),

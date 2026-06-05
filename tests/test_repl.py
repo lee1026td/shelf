@@ -257,3 +257,30 @@ def test_repl_model_shows_profiles_and_probe(workspace):
     out = console.export_text()
     assert "qwen3:32b" in out
     assert "reachable" in out.lower()
+
+
+def test_repl_model_list(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console, gateway=_gateway(workspace)).handle("/model list")
+    assert "qwen3:8b" in console.export_text()  # from the fake client's model list
+
+
+def test_repl_model_set_persists(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console, gateway=_gateway(workspace)).handle(
+        "/model set planner qwen3:8b"
+    )
+    assert "qwen3:8b" in console.export_text()
+    assert load_config(workspace.config_path).models["planner"].model == "qwen3:8b"
+
+
+def test_repl_model_set_embeddings(workspace):
+    ReplSession(workspace, console=_rec(), gateway=_gateway(workspace)).handle(
+        "/model set embeddings bge-m3"
+    )
+    assert load_config(workspace.config_path).models["embeddings"].model == "bge-m3"
+
+
+def test_repl_model_use_is_planner_shorthand(workspace):
+    ReplSession(workspace, console=_rec(), gateway=_gateway(workspace)).handle("/model use llama3.1")
+    assert load_config(workspace.config_path).models["planner"].model == "llama3.1"

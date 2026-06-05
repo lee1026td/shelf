@@ -13,7 +13,7 @@ from shelf.cli.commands.clip import clip_command
 from shelf.cli.commands.import_cmd import import_command
 from shelf.cli.commands.init import init_command
 from shelf.cli.commands.library import inbox_command, search_command, sources_command
-from shelf.cli.commands.model import ask_command, model_command, summarize_command
+from shelf.cli.commands.model import ask_command, model_app, summarize_command
 from shelf.cli.commands.status import status_command
 from shelf.cli.errors import cli_errors
 from shelf.repl import run_repl
@@ -79,9 +79,7 @@ app.command("search", help="Keyword search over collected items (the /search com
     search_command
 )
 app.command("sources", help="List the source universe (the /sources command).")(sources_command)
-app.command("model", help="Show model profiles and probe the endpoint (the /model command).")(
-    model_command
-)
+app.add_typer(model_app, name="model")
 app.command("summarize", help="LLM-summarize an item (the /summarize command).")(summarize_command)
 app.command("ask", help="Answer a question from the library (the /ask command).")(ask_command)
 
