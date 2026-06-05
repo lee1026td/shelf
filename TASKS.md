@@ -105,6 +105,12 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 
 ## Phase 3 — Topic discovery
 - [ ] query expansion, web search, candidate extraction, source scoring, initial brief
+- [ ] **`tools/` layer** (decision): uniform `Tool` interface + registry unifying
+      built-in tools (web_fetch/fs/diff/export), LLM function-calling, and MCP tools;
+      move `ingestion/fetch.py` web-fetch behind it. (Until now, no `tools/` folder —
+      capabilities live domain-organized.)
+- [ ] (RAG, deferred earlier) embedding/keyword retrieval over `.shelf/normalized/*`
+      bodies for `/ask` (currently only title+summary of recent items is used)
 
 ## Phase 4 — Watcher
 - [ ] APScheduler daemon, snapshot hash, text+semantic diff, review queue, weekly digest
