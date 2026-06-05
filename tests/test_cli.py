@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from shelf import __version__
 from shelf.cli.app import app
+from shelf.config import load_config
 from shelf.store import Store
 from shelf.workspace import resolve_workspace
 
@@ -124,3 +125,46 @@ def test_chat_enters_repl(runner, workspace):
     )
     assert result.exit_code == 0, result.output
     assert "shelf REPL" in result.output
+
+
+def test_inbox_search_sources_cli(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    ws = resolve_workspace(explicit=lib)
+    with Store.open(ws.db_path) as store:
+        store.add_source("example", "https://example.com", status="watched")
+        store.add_item(title="Findable Title", url="https://example.com/1", status="new")
+
+    inbox = runner.invoke(app, ["inbox", "--workspace", str(lib)])
+    assert inbox.exit_code == 0, inbox.output
+    assert "Findable Title" in inbox.output
+
+    search = runner.invoke(app, ["search", "Findable", "--workspace", str(lib)])
+    assert search.exit_code == 0, search.output
+    assert "Findable Title" in search.output
+
+    sources = runner.invoke(app, ["sources", "--workspace", str(lib)])
+    assert sources.exit_code == 0, sources.output
+    assert "example" in sources.output
+
+
+def test_model_command_shows_profiles(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    # --no-probe avoids any network call to the configured endpoint.
+    result = runner.invoke(app, ["model", "--no-probe", "--workspace", str(lib)])
+    assert result.exit_code == 0, result.output
+    # Role names survive the 80-col table; the model id can be truncated by Rich.
+    assert "planner" in result.output
+    assert "embeddings" in result.output
+
+
+def test_model_set_cli_persists(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    result = runner.invoke(
+        app, ["model", "set", "embeddings", "bge-m3", "--workspace", str(lib)]
+    )
+    assert result.exit_code == 0, result.output
+    ws = resolve_workspace(explicit=lib)
+    assert load_config(ws.config_path).models["embeddings"].model == "bge-m3"

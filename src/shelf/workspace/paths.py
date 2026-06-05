@@ -41,6 +41,37 @@ class Workspace:
         """True if this looks like an initialized workspace (has ``.shelf/``)."""
         return self.dot_shelf.is_dir()
 
+    def is_internal_path(self, path: Path | str) -> bool:
+        """True if ``path`` is one of this workspace's own managed files/dirs.
+
+        Used by ``/import`` to avoid recursing into and re-ingesting the library's
+        own machine state (``.shelf/``) and canonical artifacts (``Items/`` etc.).
+        """
+        try:
+            resolved = Path(path).resolve()
+        except OSError:  # pragma: no cover - resolve rarely fails
+            return False
+        managed = (
+            self.dot_shelf,
+            self.items_dir,
+            self.sources_dir,
+            self.topics_dir,
+            self.wiki_dir,
+            self.digests_dir,
+            self.compilations_dir,
+            self.review_dir,
+            self.inbox_dir,
+            self.ledgers_dir,
+        )
+        for directory in managed:
+            try:
+                base = directory.resolve()
+            except OSError:  # pragma: no cover
+                continue
+            if resolved == base or base in resolved.parents:
+                return True
+        return resolved == self.dashboard.resolve()
+
     # --- machine state under .shelf/ ---------------------------------------
     @property
     def config_path(self) -> Path:

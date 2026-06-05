@@ -107,6 +107,39 @@ def test_items_drive_inbox_count():
     store.close()
 
 
+def test_list_items_by_status_and_limit():
+    store = make_store()
+    store.add_item(title="new one", status="new")
+    store.add_item(title="new two", status="new")
+    store.add_item(title="saved one", status="saved")
+    assert len(store.list_items()) == 3
+    assert len(store.list_items(status="new")) == 2
+    assert len(store.list_items(limit=1)) == 1
+    store.close()
+
+
+def test_search_items_matches_title_and_summary():
+    store = make_store()
+    store.add_item(title="Local-first agents", url="https://x/1", summary="about agents")
+    store.add_item(title="Weather report", url="https://x/2")
+    hits = store.search_items("agent")
+    assert len(hits) == 1
+    assert hits[0]["title"] == "Local-first agents"
+    assert store.search_items("nothing-here") == []
+    store.close()
+
+
+def test_set_item_status_moves_out_of_inbox():
+    store = make_store()
+    item_id = store.add_item(title="x", status="new")
+    assert store.counts().inbox == 1
+    assert store.set_item_status(item_id, "saved") is True
+    assert store.counts().inbox == 0
+    assert store.get_item(item_id)["status"] == "saved"
+    assert store.set_item_status(999999, "saved") is False  # no such item
+    store.close()
+
+
 def test_context_manager_commits_and_closes(tmp_path):
     db = tmp_path / "library.sqlite"
     with Store.open(db) as store:

@@ -108,8 +108,12 @@ src/shelf/
   library/                   # ── IMPLEMENTED (models only) ──
     models.py                #   Topic/Source/Item/Snapshot/Claim/ReviewItem/...
 
-  ingestion/                 # ── STUB (Phase 1 remainder / Phase 4) ──
-    base.py                  #   Fetcher / Parser protocols, FetchResult
+  ingestion/                 # ── IMPLEMENTED (Phase 1) ── /clip + /import
+    base.py                  #   Fetcher / Parser protocols, FetchResult, ParsedDocument
+    parsers.py               #   html / markdown / text / pdf -> ParsedDocument
+    fetch.py                 #   HttpFetcher (http/https/file, scheme allow-list)
+    writers.py               #   Item markdown, snapshot, ledger writers
+    clip.py / importer.py    #   the /clip and /import services
   discovery/                 # ── STUB (Phase 3: topic discovery / deep research) ──
     agent.py                 #   DiscoveryAgent interface
   watcher/                   # ── STUB (Phase 4: daemon) ──
@@ -136,6 +140,21 @@ line-oriented loop that dispatches slash commands. Implemented commands run for
 real; the rest announce their phase. It is deliberately *not* the full Textual TUI
 (`tui/`, Phase 5) — it gives the "type `shelf`, get a research prompt" UX today
 without the palette/wizard machinery.
+
+### Tool layer — deferred to Phase 3 (decision)
+
+The plan (§10.3) reserves a `tools/` package (`fs.py`, `web_fetch.py`, `diff.py`,
+`export.py`) for the agent's **built-in tools**. We are **not** creating it yet.
+Until the Agent Orchestrator exists, commands call functions directly (e.g. `/clip`
+→ `clip_url()`), so there is nothing that *selects among* tools — a unified `tools/`
+registry now would be premature abstraction. The capabilities that exist live where
+they were first needed: web fetch → `ingestion/fetch.py` (`HttpFetcher`), parsing →
+`ingestion/parsers.py`, fs writes → `ingestion/writers.py` / `workspace/`.
+
+**Phase 3** introduces `tools/` as a uniform `Tool` interface + registry, unifying
+three kinds of tool: (1) built-in local tools (web_fetch/fs/diff/export), (2) LLM
+function-calling tools exposed to the model, and (3) MCP tools (`mcp/`, Phase 7).
+diff/export/OCR/transaction-rollback are built then or in their owning phase.
 
 ## 4. Module responsibilities (target)
 

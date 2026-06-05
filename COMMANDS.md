@@ -16,6 +16,14 @@ default path is a guided flow.
 | `shelf` (no args) | — | ✅ | Inside a workspace: open the **REPL**. Outside: hint to run `shelf init`. |
 | `shelf init [PATH]` | — | ✅ | Create a local research-library workspace (dirs, `config.yaml`, SQLite). `--name`, `--force`. |
 | `shelf status` | `/status` | ✅ | Show workspace, model, remote posture, and counts (sources/inbox/review). `--workspace`. |
+| `shelf clip URL` | `/clip` | ✅ | Fetch a URL (http/https/file) and save it as an Item. `--dry-run`, `--workspace`. |
+| `shelf import PATH` | `/import` | ✅ | Import local PDF/HTML/Markdown/text into Items. `--dry-run`, `--no-recursive`. |
+| `shelf inbox` | `/inbox` | ✅ | List newly collected items (status='new'). `--limit`. |
+| `shelf search Q` | `/search` | ✅ | Keyword search over items (title/summary/url). |
+| `shelf sources` | `/sources` | ✅ | List the source universe by status. |
+| `shelf model [list\|set\|use]` | `/model` | ✅ | Show/probe; `list [role]`, `set <role> <model> [--base-url]`, `use <model>`. Selects chat **and** embedding models. Works with any OpenAI-compatible endpoint (remote needs `privacy.remote_llm: true` + `$SHELF_API_KEY`). |
+| `shelf ask Q` | `/ask` | ✅ | Answer a question grounded in the library (also: type free text in the REPL). |
+| `shelf summarize ID` | `/summarize` | ✅ | LLM-summarize an item and store the summary. |
 | `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |
 | `shelf version` | — | ✅ | Print the installed shelf version. |
 
@@ -33,10 +41,14 @@ shelf> a free topic    # Note: chat routing - planned for Phase 2 (LLM) + 3 (dis
 shelf> /exit
 ```
 
-- REPL built-ins available **now**: `/status`, `/help` (alias `/`, `/?`), `/exit`
-  (aliases `/quit`, `/q`).
+- REPL commands available **now**: `/status`, `/clip <url>`, `/import <path>`,
+  `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`,
+  `/ask <q>`, `/summarize <id>`, `/model`,
+  `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
+- **Free text** (no leading `/`) is answered from the library via the model
+  gateway (`/ask`). Discovery/web research routing arrives in Phase 3.
 - Every other slash command is recognized and announces its phase (see §2).
-- Free text (no leading `/`) will route to chat/`/explore` once Phase 2/3 land.
+- Free text (no leading `/`) is answered from the library via the model gateway.
 - Input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
 
 ### `shelf init`
@@ -69,26 +81,26 @@ shown is the advanced layer. Modules backing them are stubbed or not-yet-created
 | `/explore` | 🧩 (`discovery`) | One-time research + source discovery from a topic | scope → search depth → source map → watch candidates |
 | `/track` | 🧩 (`discovery`/`watcher`) | Promote a topic to a tracked topic | review sources → frequency → refresh policy → approve |
 | `/watch` | 🧩 (`watcher`) | Manage a source or watched topic | health dashboard → add/run/pause/mute/fix |
-| `/sources` | 🗓️ | Review the source universe | Pinned/Watched/Candidate/Muted/Rejected tabs |
-| `/clip` | 🧩 (`ingestion`) | Save a URL / clipboard article now | analyze URL → suggest collection → summary card |
-| `/import` | 🧩 (`ingestion`) | Import a local PDF/HTML/Markdown folder | pick folder → file summary → parse/index plan → approve |
+| `/sources` | ✅ | List the source universe by status | `shelf sources` / REPL `/sources` (full tabs UI: Phase 5) |
+| `/clip` | ✅ (`ingestion`) | Save a URL / clipboard article now | URL → parse → Item + ephemeral source (REPL: `/clip <url>`) |
+| `/import` | ✅ (`ingestion`) | Import a local PDF/HTML/Markdown folder | path → parse → Items (REPL: `/import <path>`) |
 
 ### 2.2 Review / summarize / compile (plan §5.2)
 | Slash | Status | Function | Guided flow |
 |---|---|---|---|
-| `/inbox` | 🗓️ | Skim newly collected items | high-signal / worth-saving / noise groups |
+| `/inbox` | ✅ | List newly collected items + triage | `/inbox`, `/save <id>`, `/mute <id>` (high-signal grouping: later) |
 | `/review` | 🧩 (`tui`) | Process candidates, stale claims, failed extractions, patches | pending → evidence → approve/reject/snooze/mute |
 | `/digest` | 🧩 (`watcher`) | Generate a period/collection/topic digest | period → scope → threshold → generate |
 | `/compile` | 🧩 (`discovery`) | Compile a brief/landscape/FAQ/timeline | type → scope → draft → diff → apply |
 | `/wiki` | 🗓️ | Update/browse/rollback local wiki or Notion page | tree → stale page → patch → approve |
 | `/diff` | 🧩 (`watcher`) | Review snapshot/wiki/compilation changes | before/after → semantic summary → evidence |
-| `/search` | 🗓️ | Keyword/semantic search across the library | query → filters → ranked → open/save/compile |
-| `/ask` | 🧩 (`llm`) | Citation-backed Q&A over library + web | local-only/web → cited answer |
+| `/search` | ✅ | Keyword search across collected items | `shelf search <q>` / REPL `/search <q>` (semantic search: Phase 3) |
+| `/ask` | ✅ (`llm`) | Q&A grounded in the library | recent items as context → answer (web + full citations: Phase 3) |
 
 ### 2.3 Config / integration / safety (plan §5.3)
 | Slash | Status | Function | Guided flow |
 |---|---|---|---|
-| `/model` | 🧩 (`llm`) | Configure OpenAI-compatible endpoints + role profiles | provider → base_url → test → capability probe |
+| `/model` | ✅ (`llm`) | Show OpenAI-compatible profiles + probe endpoint | `shelf model` / `/model` (interactive setup wizard: Phase 5) |
 | `/mcp` | 🧩 (`mcp`) | Register/inspect local/remote MCP servers | add/list/inspect → trust → permission prompt |
 | `/privacy` | 🗓️ | Audit egress paths and rules | show data-leaves-machine paths + rules |
 | `/notion` | 🧩 (`notion`) | Manage Notion connection/schema/sync mode | token → parent page → DB create → sync mode |

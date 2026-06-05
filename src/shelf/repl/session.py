@@ -17,15 +17,22 @@ from collections.abc import Callable
 from rich.console import Console
 from rich.table import Table
 
+from shelf.config import load_config
 from shelf.errors import ShelfError
+from shelf.ingestion import Fetcher, clip_url, import_path
+from shelf.llm import ModelGateway, ask_library, summarize_item
 from shelf.repl.commands import (
     COMMANDS_BY_NAME,
     EXIT_ALIASES,
     HELP_ALIASES,
     SLASH_COMMANDS,
 )
-from shelf.services import gather_status
+from shelf.services import gather_status, set_model
+from shelf.store import Store
 from shelf.ui.console import console as default_console
+from shelf.ui.ingest_view import render_clip_outcome, render_import_outcome
+from shelf.ui.library_view import render_items, render_sources
+from shelf.ui.model_view import render_model_list, render_models
 from shelf.ui.status_view import render_status, status_bar_line
 from shelf.workspace import Workspace
 
@@ -51,10 +58,23 @@ def _strip_leading_junk(line: str) -> str:
 class ReplSession:
     """Holds REPL state and dispatches one input line at a time."""
 
-    def __init__(self, workspace: Workspace, console: Console | None = None) -> None:
+    def __init__(
+        self,
+        workspace: Workspace,
+        console: Console | None = None,
+        fetcher: Fetcher | None = None,
+        gateway: ModelGateway | None = None,
+    ) -> None:
         self.workspace = workspace
         self.console = console or default_console
+        self.fetcher = fetcher  # injectable for tests; None -> default HttpFetcher
+        self._gateway = gateway  # injectable for tests; None -> built from config
         self.running = True
+
+    def _get_gateway(self) -> ModelGateway:
+        if self._gateway is None:
+            self._gateway = ModelGateway(load_config(self.workspace.config_path))
+        return self._gateway
 
     def handle(self, line: str) -> None:
         text = _strip_leading_junk(line)
@@ -67,7 +87,9 @@ class ReplSession:
 
     # --- dispatch -----------------------------------------------------------
     def _handle_slash(self, body: str) -> None:
-        name = body.split(maxsplit=1)[0].lower() if body.strip() else ""
+        parts = body.split(maxsplit=1)
+        name = parts[0].lower() if parts and parts[0] else ""
+        arg = parts[1].strip() if len(parts) > 1 else ""
         if name in EXIT_ALIASES:
             self.running = False
             self.console.print("Bye.", style="dim")
@@ -75,8 +97,9 @@ class ReplSession:
         if name in HELP_ALIASES:
             self._print_help()
             return
-        if name == "status":
-            self._print_status()
+        handler = self._dispatch().get(name)
+        if handler is not None:
+            handler(arg)
             return
         command = COMMANDS_BY_NAME.get(name)
         if command is None:
@@ -90,12 +113,168 @@ class ReplSession:
             style="yellow",
         )
 
+    def _dispatch(self) -> dict[str, Callable[[str], None]]:
+        """Map implemented slash-command names to their handlers."""
+        return {
+            "status": lambda _arg: self._print_status(),
+            "clip": self._handle_clip,
+            "import": self._handle_import,
+            "inbox": self._handle_inbox,
+            "search": self._handle_search,
+            "sources": lambda _arg: self._handle_sources(),
+            "save": lambda arg: self._set_item_status(arg, "saved"),
+            "mute": lambda arg: self._set_item_status(arg, "muted"),
+            "ask": self._handle_ask,
+            "summarize": self._handle_summarize,
+            "model": self._handle_model,
+        }
+
     def _handle_text(self, text: str) -> None:
+        # Free text is a library-grounded question (Phase 2). Discovery/web (Phase 3).
+        self._answer(text)
+
+    def _handle_ask(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /ask <question>", style="yellow")
+            return
+        self._answer(arg)
+
+    def _answer(self, question: str) -> None:
+        try:
+            gateway = self._get_gateway()
+            with Store.open(self.workspace.db_path) as store:
+                answer = ask_library(self.workspace, store, gateway, question)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        if not answer.strip():
+            self.console.print(
+                "(the model returned an empty answer - try a larger model "
+                "or a non-thinking one)",
+                style="yellow",
+            )
+            return
+        # markup=False: LLM text often contains '[' which Rich would mis-parse.
+        self.console.print(answer, highlight=False, markup=False)
+
+    def _handle_summarize(self, arg: str) -> None:
+        if not arg.strip().isdigit():
+            self.console.print("Usage: /summarize <item-id>", style="yellow")
+            return
+        item_id = int(arg.strip())
+        try:
+            gateway = self._get_gateway()
+            with Store.open(self.workspace.db_path) as store:
+                summary = summarize_item(self.workspace, store, gateway, item_id)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False, markup=False)
+
+    def _handle_model(self, arg: str = "") -> None:
+        tokens = arg.split()
+        sub = tokens[0].lower() if tokens else ""
+
+        if not sub:  # /model -> show profiles + probe
+            config = load_config(self.workspace.config_path)
+            render_models(self.console, config, self._get_gateway().probe("planner"))
+            return
+
+        if sub == "list":  # /model list [role]
+            role = tokens[1] if len(tokens) > 1 else "planner"
+            try:
+                models = self._get_gateway().list_models(role)
+            except ShelfError as exc:
+                self.console.print(f"Error: {exc}", style="red")
+                return
+            config = load_config(self.workspace.config_path)
+            base_url = config.models[role].base_url if role in config.models else "?"
+            render_model_list(self.console, role, base_url, models)
+            return
+
+        if sub == "set" and len(tokens) >= 3:  # /model set <role> <model> [base_url]
+            self._apply_model(tokens[1], tokens[2], tokens[3] if len(tokens) > 3 else None)
+            return
+
+        if sub == "use" and len(tokens) >= 2:  # /model use <model> (planner shorthand)
+            self._apply_model("planner", tokens[1], None)
+            return
+
         self.console.print(
-            "Note: free-text chat / research routing is not implemented yet - "
-            "planned for Phase 2 (LLM gateway) + Phase 3 (discovery). Type /help.",
+            "Usage: /model | /model list [role] | /model set <role> <model> [base_url] | "
+            "/model use <model>",
             style="yellow",
         )
+
+    def _apply_model(self, role: str, model: str, base_url: str | None) -> None:
+        profile = set_model(self.workspace, role, model=model, base_url=base_url)
+        self._gateway = None  # rebuild from the new config on next use
+        self.console.print(
+            f"{role} -> {profile.model} @ {profile.base_url}", style="green", highlight=False
+        )
+
+    def _handle_clip(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /clip <url>", style="yellow")
+            return
+        try:
+            with Store.open(self.workspace.db_path) as store:
+                outcome = clip_url(self.workspace, arg, fetcher=self.fetcher, store=store)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        except Exception as exc:  # network/parse surprises - keep the REPL alive
+            self.console.print(f"Error: clip failed: {exc}", style="red")
+            return
+        render_clip_outcome(self.console, outcome)
+
+    def _handle_import(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /import <path>", style="yellow")
+            return
+        try:
+            with Store.open(self.workspace.db_path) as store:
+                outcome = import_path(self.workspace, arg, store=store)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        render_import_outcome(self.console, outcome)
+
+    def _handle_inbox(self, arg: str) -> None:
+        limit = int(arg) if arg.strip().isdigit() else 20
+        with Store.open(self.workspace.db_path) as store:
+            items = store.list_items(status="new", limit=limit)
+        render_items(self.console, items, title="inbox")
+        if items:
+            self.console.print(
+                "Triage: /save <id>  /mute <id>   (open a file under Items/ to read)",
+                style="dim",
+            )
+
+    def _handle_search(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /search <query>", style="yellow")
+            return
+        with Store.open(self.workspace.db_path) as store:
+            items = store.search_items(arg)
+        render_items(self.console, items, title=f"search: {arg}")
+
+    def _handle_sources(self) -> None:
+        with Store.open(self.workspace.db_path) as store:
+            sources = store.list_sources()
+        render_sources(self.console, sources)
+
+    def _set_item_status(self, arg: str, status: str) -> None:
+        if not arg.strip().isdigit():
+            self.console.print(f"Usage: /{ 'save' if status=='saved' else 'mute' } <item-id>", style="yellow")
+            return
+        item_id = int(arg.strip())
+        with Store.open(self.workspace.db_path) as store:
+            changed = store.set_item_status(item_id, status)
+        if changed:
+            self.console.print(f"Item {item_id} -> {status}.", style="green")
+        else:
+            self.console.print(f"No item with id {item_id}.", style="yellow")
 
     # --- built-ins ----------------------------------------------------------
     def _print_status(self) -> None:
@@ -119,7 +298,7 @@ class ReplSession:
             )
         self.console.print(table)
         self.console.print(
-            "Type a topic in plain text to chat (coming in Phase 2/3). /exit to quit.",
+            "Type a question in plain text to ask the library. /exit to quit.",
             style="dim",
         )
 

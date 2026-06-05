@@ -45,6 +45,22 @@ class ConfigError(ShelfError):
     """Invalid or unreadable configuration."""
 
 
+class IngestionError(ShelfError):
+    """A problem fetching, parsing, or importing content."""
+
+
+class FetchError(IngestionError):
+    """Could not retrieve a URL."""
+
+
+class UnsupportedContentError(IngestionError):
+    """The content type / file extension is not supported."""
+
+
+class LLMError(ShelfError):
+    """A problem configuring or calling the model gateway."""
+
+
 class FeatureNotReady(NotImplementedError, ShelfError):
     """A feature that is intentionally stubbed for a later phase was invoked.
 

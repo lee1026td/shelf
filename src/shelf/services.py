@@ -7,7 +7,7 @@ the same :class:`StatusReport` from one place.
 
 from __future__ import annotations
 
-from shelf.config import load_config
+from shelf.config import ModelProfile, load_config, save_config
 from shelf.errors import WorkspaceError
 from shelf.store import Store
 from shelf.ui.status_view import StatusReport
@@ -38,3 +38,29 @@ def gather_status(workspace: Workspace) -> StatusReport:
         schema_version=schema_version,
         counts=counts,
     )
+
+
+def set_model(
+    workspace: Workspace,
+    role: str,
+    *,
+    model: str | None = None,
+    base_url: str | None = None,
+    provider: str | None = None,
+) -> ModelProfile:
+    """Update a model role profile in config.yaml and persist it.
+
+    Works for any role (``planner``, ``embeddings``, ...). Only the fields passed are
+    changed; the rest of the profile (e.g. base_url, capabilities) is preserved.
+    """
+    config = load_config(workspace.config_path)
+    profile = config.models.get(role) or ModelProfile()
+    if model is not None:
+        profile.model = model
+    if base_url is not None:
+        profile.base_url = base_url
+    if provider is not None:
+        profile.provider = provider
+    config.models[role] = profile
+    save_config(config, workspace.config_path)
+    return profile

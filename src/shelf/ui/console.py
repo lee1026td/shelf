@@ -13,12 +13,29 @@ the meaning when color is stripped (pipes, capture, dumb terminals).
 
 from __future__ import annotations
 
+import sys
+
 from rich.console import Console
 
 from shelf.ui.theme import SHELF_THEME
 
 console = Console(theme=SHELF_THEME, highlight=False)
 err_console = Console(theme=SHELF_THEME, stderr=True, highlight=False)
+
+
+def ensure_safe_streams() -> None:
+    """Make stdout/stderr tolerate characters the console code page can't encode.
+
+    Our own messages are ASCII, but ingested content (titles, file paths) may not
+    be. On a non-UTF-8 Windows console (e.g. cp949) an unencodable char would raise
+    UnicodeEncodeError mid-render; ``errors="backslashreplace"`` degrades it to an
+    escape instead of crashing. A no-op where reconfigure is unavailable.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")  # type: ignore[union-attr]
+        except (AttributeError, ValueError, OSError):
+            pass
 
 
 def success(message: str) -> None:

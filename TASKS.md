@@ -74,20 +74,43 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [x] `shelf status` fails cleanly (not a traceback) when `library.sqlite` is missing/blank
 - [x] config boolean capabilities coerce quoted `"false"/"off"/"no"` correctly
 
-## Phase 1 — Local library mode (remaining)
-- [ ] `/clip` — save URL/clipboard article → summary card → Item
-- [ ] `/import` — local PDF/HTML/MD folder → parse → Items + index
-- [ ] HTML article extraction (httpx + trafilatura/readability)
-- [ ] PDF parsing (Docling primary, Unstructured fallback)
-- [ ] Normalized Markdown output + `Items/YYYY/MM/*.md` writer
-- [ ] Source ledger append (`Ledgers/source_ledger.jsonl`)
-- [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild
+## Phase 1 — Local library mode
+- [x] `/clip` — fetch URL (http/https/file) → parse → Item + ephemeral source (`shelf clip`)
+- [x] `/import` — local PDF/HTML/MD/text file or folder → parse → Items (`shelf import`)
+- [x] HTML article extraction (BeautifulSoup/html.parser; trafilatura is a later upgrade)
+- [x] PDF parsing (pypdf; Docling is a later upgrade)
+- [x] Markdown/text parsing
+- [x] Normalized Markdown output + `Items/YYYY/MM/<slug>.md` writer (YAML frontmatter)
+- [x] Snapshot store (`.shelf/snapshots` + `.shelf/normalized`, content-hash deduped)
+- [x] Source ledger append (`Ledgers/source_ledger.jsonl`)
+- [x] `--dry-run` (plan without writing) for clip + import
+- [x] Hardening (review): `/import` excludes the workspace's own dirs; per-file
+      SAVEPOINT atomicity; URL scheme allow-list; size caps; Windows reserved-name
+      slugs; `ensure_safe_streams` for non-ASCII content; relative-POSIX path storage
+- [x] Browse + triage: `/inbox` (list new), `/search <q>`, `/sources`, `/save <id>`,
+      `/mute <id>` — REPL + CLI (`shelf inbox`/`search`/`sources`)
+- [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild (deferred to discovery)
 
 ## Phase 2 — LLM gateway
-- [ ] OpenAI-compatible client, role profiles, model test, capability probe, summary card
+- [x] OpenAI-compatible client (`shelf.llm.client`, urllib, injectable/mockable)
+- [x] `ModelGateway` — role profiles, `complete`/`embed`, capability `probe`
+- [x] Egress gate: localhost allowed; remote endpoint requires `privacy.remote_llm`
+- [x] `/model` (show profiles + probe) — REPL + `shelf model` (`--no-probe`)
+- [x] Model **selection** (chat + embeddings): `/model list [role]`, `/model set <role>
+      <model> [base_url]`, `/model use <model>` — persisted to config (REPL + CLI)
+- [x] Works with local **and** remote OpenAI-compatible endpoints (remote opt-in)
+- [x] `/summarize <id>` — LLM summary of an Item, persisted — REPL + `shelf summarize`
+- [x] `/ask <q>` + free-text chat — library-grounded answer — REPL + `shelf ask`
+- [ ] Summary-on-clip/import (opt-in), streaming, keyring-backed API keys (later)
 
 ## Phase 3 — Topic discovery
 - [ ] query expansion, web search, candidate extraction, source scoring, initial brief
+- [ ] **`tools/` layer** (decision): uniform `Tool` interface + registry unifying
+      built-in tools (web_fetch/fs/diff/export), LLM function-calling, and MCP tools;
+      move `ingestion/fetch.py` web-fetch behind it. (Until now, no `tools/` folder —
+      capabilities live domain-organized.)
+- [ ] (RAG, deferred earlier) embedding/keyword retrieval over `.shelf/normalized/*`
+      bodies for `/ask` (currently only title+summary of recent items is used)
 
 ## Phase 4 — Watcher
 - [ ] APScheduler daemon, snapshot hash, text+semantic diff, review queue, weekly digest

@@ -30,5 +30,22 @@ Thumbs.db
 .shelf/index/
 .shelf/cache/
 
+# A shelf workspace must never live in this code repo (a stray `shelf init` here).
+# These are root-anchored so they don't affect the src/shelf package.
+/.shelf/
+/Dashboard.md
+/Inbox/
+/Ledgers/
+/Items/
+/Topics/
+/Sources/
+/Wiki/
+/Digests/
+/Compilations/
+/Review/
+
 # Extracted/derived from the product plan PDF
 _plan_extracted.txt
+
+# Local demo workspace used to generate REPORT.md artifacts
+_demo/

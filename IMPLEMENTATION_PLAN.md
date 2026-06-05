@@ -117,8 +117,8 @@ A reviewer can verify the milestone is complete by checking each item:
 | Phase | Goal | Primary deliverables | Status |
 |---|---|---|---|
 | **0** | Workspace skeleton | `shelf init`, `config.yaml`, SQLite schema, local dir layout | **This milestone** |
-| **1** | Local library mode | `/clip`, `/import`, HTML/PDF parsing, local Markdown output, source ledger | Foundation now; ingestion deferred |
-| **2** | LLM gateway | OpenAI-compatible config, local model test, summary card, capability probe | Stub (`shelf.llm`) |
+| **1** | Local library mode | `/clip`, `/import`, HTML/PDF parsing, local Markdown output, source ledger | **Implemented** (clip/import/parse/snapshots/ledger/dry-run) |
+| **2** | LLM gateway | OpenAI-compatible config, local model test, summary card, capability probe | **Implemented** (gateway/probe, `/model` `/summarize` `/ask`) |
 | **3** | Topic discovery | natural prompt → web search → candidates → scoring → initial brief | Stub (`shelf.discovery`) |
 | **4** | Watcher | RSS/sitemap watcher, snapshots, diff, review queue, weekly digest | Stub (`shelf.watcher`) |
 | **5** | TUI UX | Rich/Textual `/review` `/watch` `/compile`, command palette, approval UI | Stub (`shelf.tui`) |

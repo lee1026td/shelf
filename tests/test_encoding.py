@@ -7,8 +7,12 @@ never raises ``UnicodeEncodeError`` on a non-UTF-8 Windows code page.
 
 from __future__ import annotations
 
+import io
+import sys
+
 from shelf.cli.app import app
 from shelf.errors import FeatureNotReady, WorkspaceExists, WorkspaceNotFound
+from shelf.ui.console import ensure_safe_streams
 
 
 def test_feature_not_ready_messages_are_ascii():
@@ -40,6 +44,25 @@ def _combined_output(result) -> str:
     out = result.output or ""
     err = result.stderr if getattr(result, "stderr_bytes", None) else ""
     return out + err
+
+
+def test_ensure_safe_streams_flips_error_handler(monkeypatch):
+    # A strict cp949 stream would raise on non-cp949 content; ensure_safe_streams
+    # must switch it to backslashreplace so ingested content degrades, not crashes.
+    cp949_stream = io.TextIOWrapper(io.BytesIO(), encoding="cp949", errors="strict")
+    monkeypatch.setattr(sys, "stdout", cp949_stream)
+    monkeypatch.setattr(sys, "stderr", cp949_stream)
+    ensure_safe_streams()
+    assert sys.stdout.errors == "backslashreplace"
+    sys.stdout.write("cafe ✓ 안녕")  # non-cp949 chars -> must not raise
+    sys.stdout.flush()
+
+
+def test_ensure_safe_streams_noop_on_plain_stream(monkeypatch):
+    # A StringIO has no reconfigure(); ensure_safe_streams must be a safe no-op.
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    monkeypatch.setattr(sys, "stderr", io.StringIO())
+    ensure_safe_streams()
 
 
 def test_chat_runtime_output_is_ascii(runner):

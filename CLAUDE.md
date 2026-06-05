@@ -34,11 +34,17 @@ their phase), Rich UI (`shelf.ui`), workspace init + layout, SQLite store (full
 schema), config load/save, `shelf.services.gather_status` (shared by CLI + REPL),
 tests. The full Textual command-palette TUI remains Phase 5 (`shelf.tui`).
 
-Stubs that raise `shelf.errors.FeatureNotReady` (clear interface, no behavior yet):
-`shelf.ingestion`, `shelf.llm`, `shelf.discovery`, `shelf.watcher`, `shelf.tui`,
-`shelf.notion`, `shelf.mcp`. Do **not** quietly implement these as side effects of
-unrelated work — they are phased (see `IMPLEMENTATION_PLAN.md` §3). Update `TASKS.md`
-and the status memory when a phase lands.
+**Phase 1 ingestion** (`shelf.ingestion`): `/clip`, `/import`, + browse/triage
+(`/inbox` `/search` `/sources` `/save` `/mute`). **Phase 2 LLM gateway**
+(`shelf.llm`): `ModelGateway` over an OpenAI-compatible endpoint (urllib, injectable
+client), capability `probe`, egress gate (localhost ok; remote needs
+`privacy.remote_llm`); `/model`, `/summarize <id>`, `/ask <q>` + free-text chat.
+
+Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
+`shelf.discovery`, `shelf.watcher`, `shelf.tui`, `shelf.notion`, `shelf.mcp`. Do
+**not** quietly implement these as side effects of unrelated work — they are phased
+(see `IMPLEMENTATION_PLAN.md` §3). Update `TASKS.md` and the status memory when a
+phase lands.
 
 ## Layout
 ```
