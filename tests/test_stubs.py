@@ -6,7 +6,6 @@ import pytest
 
 from shelf.discovery import DiscoveryAgent
 from shelf.errors import FeatureNotReady, ShelfError
-from shelf.ingestion import Ingestor
 from shelf.llm import ModelGateway
 from shelf.mcp import McpRegistry, McpServer
 from shelf.notion import NotionAdapter
@@ -20,8 +19,6 @@ def test_feature_not_ready_is_shelf_and_notimplemented():
 
 
 STUBS = [
-    (lambda: Ingestor().clip("https://x"), 1),
-    (lambda: Ingestor().import_path("/tmp/x"), 1),
     (lambda: ModelGateway().complete("hi"), 2),
     (lambda: ModelGateway().embed(["a"]), 2),
     (lambda: ModelGateway().probe(), 2),

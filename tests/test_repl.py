@@ -5,6 +5,8 @@ from __future__ import annotations
 from rich.console import Console
 
 from shelf.repl.session import ReplSession, run_repl
+from shelf.store import Store
+from tests.fixtures import FakeFetcher
 
 
 def _rec() -> Console:
@@ -109,3 +111,27 @@ def test_run_repl_stops_on_eof(workspace):
 
     run_repl(workspace, console=console, reader=reader)  # must not hang/raise
     assert "shelf REPL" in console.export_text()
+
+
+def test_repl_clip_with_fake_fetcher(workspace):
+    html = b"<title>Zeta Post</title><body><article><p>zeta body</p></article></body>"
+    session = ReplSession(workspace, console=_rec(), fetcher=FakeFetcher(html))
+    session.handle("/clip https://example.com/zeta")
+    with Store.open(workspace.db_path) as store:
+        assert store.counts().items == 1
+
+
+def test_repl_clip_usage_without_arg(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/clip")
+    assert "Usage" in console.export_text()
+
+
+def test_repl_import_folder(workspace, tmp_path):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text("# A\n\nbody", encoding="utf-8")
+    console = _rec()
+    ReplSession(workspace, console=console).handle(f"/import {docs}")
+    with Store.open(workspace.db_path) as store:
+        assert store.counts().items == 1

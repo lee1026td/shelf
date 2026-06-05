@@ -18,6 +18,7 @@ from rich.console import Console
 from rich.table import Table
 
 from shelf.errors import ShelfError
+from shelf.ingestion import Fetcher, clip_url, import_path
 from shelf.repl.commands import (
     COMMANDS_BY_NAME,
     EXIT_ALIASES,
@@ -25,7 +26,9 @@ from shelf.repl.commands import (
     SLASH_COMMANDS,
 )
 from shelf.services import gather_status
+from shelf.store import Store
 from shelf.ui.console import console as default_console
+from shelf.ui.ingest_view import render_clip_outcome, render_import_outcome
 from shelf.ui.status_view import render_status, status_bar_line
 from shelf.workspace import Workspace
 
@@ -51,9 +54,15 @@ def _strip_leading_junk(line: str) -> str:
 class ReplSession:
     """Holds REPL state and dispatches one input line at a time."""
 
-    def __init__(self, workspace: Workspace, console: Console | None = None) -> None:
+    def __init__(
+        self,
+        workspace: Workspace,
+        console: Console | None = None,
+        fetcher: Fetcher | None = None,
+    ) -> None:
         self.workspace = workspace
         self.console = console or default_console
+        self.fetcher = fetcher  # injectable for tests; None -> default HttpFetcher
         self.running = True
 
     def handle(self, line: str) -> None:
@@ -67,7 +76,9 @@ class ReplSession:
 
     # --- dispatch -----------------------------------------------------------
     def _handle_slash(self, body: str) -> None:
-        name = body.split(maxsplit=1)[0].lower() if body.strip() else ""
+        parts = body.split(maxsplit=1)
+        name = parts[0].lower() if parts and parts[0] else ""
+        arg = parts[1].strip() if len(parts) > 1 else ""
         if name in EXIT_ALIASES:
             self.running = False
             self.console.print("Bye.", style="dim")
@@ -77,6 +88,12 @@ class ReplSession:
             return
         if name == "status":
             self._print_status()
+            return
+        if name == "clip":
+            self._handle_clip(arg)
+            return
+        if name == "import":
+            self._handle_import(arg)
             return
         command = COMMANDS_BY_NAME.get(name)
         if command is None:
@@ -96,6 +113,33 @@ class ReplSession:
             "planned for Phase 2 (LLM gateway) + Phase 3 (discovery). Type /help.",
             style="yellow",
         )
+
+    def _handle_clip(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /clip <url>", style="yellow")
+            return
+        try:
+            with Store.open(self.workspace.db_path) as store:
+                outcome = clip_url(self.workspace, arg, fetcher=self.fetcher, store=store)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        except Exception as exc:  # network/parse surprises - keep the REPL alive
+            self.console.print(f"Error: clip failed: {exc}", style="red")
+            return
+        render_clip_outcome(self.console, outcome)
+
+    def _handle_import(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /import <path>", style="yellow")
+            return
+        try:
+            with Store.open(self.workspace.db_path) as store:
+                outcome = import_path(self.workspace, arg, store=store)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        render_import_outcome(self.console, outcome)
 
     # --- built-ins ----------------------------------------------------------
     def _print_status(self) -> None:

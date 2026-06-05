@@ -9,11 +9,13 @@ import typer
 
 from shelf import __version__
 from shelf.cli.commands.chat import chat_command
+from shelf.cli.commands.clip import clip_command
+from shelf.cli.commands.import_cmd import import_command
 from shelf.cli.commands.init import init_command
 from shelf.cli.commands.status import status_command
 from shelf.cli.errors import cli_errors
 from shelf.repl import run_repl
-from shelf.ui.console import info
+from shelf.ui.console import ensure_safe_streams, info
 from shelf.workspace import Workspace
 
 app = typer.Typer(
@@ -66,6 +68,10 @@ app.command("status", help="Show workspace, model, and library counts (the /stat
     status_command
 )
 app.command("chat", help="Enter the research REPL (slash commands + chat).")(chat_command)
+app.command("clip", help="Fetch a URL and save it as an Item (the /clip command).")(clip_command)
+app.command("import", help="Import local PDF/HTML/Markdown files (the /import command).")(
+    import_command
+)
 
 
 @app.command("version", help="Print the installed shelf version.")
@@ -75,6 +81,7 @@ def version_command() -> None:
 
 def main() -> None:
     """Console-script entrypoint (`shelf`)."""
+    ensure_safe_streams()
     app()
 
 

@@ -108,8 +108,12 @@ src/shelf/
   library/                   # ── IMPLEMENTED (models only) ──
     models.py                #   Topic/Source/Item/Snapshot/Claim/ReviewItem/...
 
-  ingestion/                 # ── STUB (Phase 1 remainder / Phase 4) ──
-    base.py                  #   Fetcher / Parser protocols, FetchResult
+  ingestion/                 # ── IMPLEMENTED (Phase 1) ── /clip + /import
+    base.py                  #   Fetcher / Parser protocols, FetchResult, ParsedDocument
+    parsers.py               #   html / markdown / text / pdf -> ParsedDocument
+    fetch.py                 #   HttpFetcher (http/https/file, scheme allow-list)
+    writers.py               #   Item markdown, snapshot, ledger writers
+    clip.py / importer.py    #   the /clip and /import services
   discovery/                 # ── STUB (Phase 3: topic discovery / deep research) ──
     agent.py                 #   DiscoveryAgent interface
   watcher/                   # ── STUB (Phase 4: daemon) ──

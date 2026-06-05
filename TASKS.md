@@ -74,14 +74,20 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [x] `shelf status` fails cleanly (not a traceback) when `library.sqlite` is missing/blank
 - [x] config boolean capabilities coerce quoted `"false"/"off"/"no"` correctly
 
-## Phase 1 — Local library mode (remaining)
-- [ ] `/clip` — save URL/clipboard article → summary card → Item
-- [ ] `/import` — local PDF/HTML/MD folder → parse → Items + index
-- [ ] HTML article extraction (httpx + trafilatura/readability)
-- [ ] PDF parsing (Docling primary, Unstructured fallback)
-- [ ] Normalized Markdown output + `Items/YYYY/MM/*.md` writer
-- [ ] Source ledger append (`Ledgers/source_ledger.jsonl`)
-- [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild
+## Phase 1 — Local library mode
+- [x] `/clip` — fetch URL (http/https/file) → parse → Item + ephemeral source (`shelf clip`)
+- [x] `/import` — local PDF/HTML/MD/text file or folder → parse → Items (`shelf import`)
+- [x] HTML article extraction (BeautifulSoup/html.parser; trafilatura is a later upgrade)
+- [x] PDF parsing (pypdf; Docling is a later upgrade)
+- [x] Markdown/text parsing
+- [x] Normalized Markdown output + `Items/YYYY/MM/<slug>.md` writer (YAML frontmatter)
+- [x] Snapshot store (`.shelf/snapshots` + `.shelf/normalized`, content-hash deduped)
+- [x] Source ledger append (`Ledgers/source_ledger.jsonl`)
+- [x] `--dry-run` (plan without writing) for clip + import
+- [x] Hardening (review): `/import` excludes the workspace's own dirs; per-file
+      SAVEPOINT atomicity; URL scheme allow-list; size caps; Windows reserved-name
+      slugs; `ensure_safe_streams` for non-ASCII content; relative-POSIX path storage
+- [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild (deferred to discovery)
 
 ## Phase 2 — LLM gateway
 - [ ] OpenAI-compatible client, role profiles, model test, capability probe, summary card

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -111,6 +113,22 @@ class Store:
 
     def commit(self) -> None:
         self._conn.commit()
+
+    @contextmanager
+    def savepoint(self, name: str = "shelf_sp") -> Iterator[None]:
+        """Scope a unit of work so it rolls back cleanly on error.
+
+        Used by batch importers so one failing file leaves no partially-written DB
+        rows while other files still succeed.
+        """
+        self._conn.execute(f"SAVEPOINT {name}")
+        try:
+            yield
+        except Exception:
+            self._conn.execute(f"ROLLBACK TO {name}")
+            raise
+        finally:
+            self._conn.execute(f"RELEASE {name}")
 
     def close(self) -> None:
         self._conn.close()
@@ -252,6 +270,28 @@ class Store:
     def get_item(self, item_id: int) -> dict[str, Any] | None:
         row = self._conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
         return _row_to_dict(row)
+
+    # --- snapshots ----------------------------------------------------------
+    def add_snapshot(
+        self,
+        *,
+        hash: str,
+        fetched_at: str,
+        source_id: int | None = None,
+        item_id: int | None = None,
+        raw_path: str | None = None,
+        normalized_path: str | None = None,
+        parser_version: str | None = None,
+    ) -> int:
+        """Insert a snapshot row and return its id."""
+        now = _utc_now_iso()
+        cur = self._conn.execute(
+            "INSERT INTO snapshots(source_id, item_id, hash, raw_path, normalized_path, "
+            "fetched_at, parser_version, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            (source_id, item_id, hash, raw_path, normalized_path, fetched_at,
+             parser_version, now),
+        )
+        return int(cur.lastrowid)
 
 
 def _row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:

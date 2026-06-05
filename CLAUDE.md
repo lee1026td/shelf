@@ -34,11 +34,15 @@ their phase), Rich UI (`shelf.ui`), workspace init + layout, SQLite store (full
 schema), config load/save, `shelf.services.gather_status` (shared by CLI + REPL),
 tests. The full Textual command-palette TUI remains Phase 5 (`shelf.tui`).
 
-Stubs that raise `shelf.errors.FeatureNotReady` (clear interface, no behavior yet):
-`shelf.ingestion`, `shelf.llm`, `shelf.discovery`, `shelf.watcher`, `shelf.tui`,
-`shelf.notion`, `shelf.mcp`. Do **not** quietly implement these as side effects of
-unrelated work — they are phased (see `IMPLEMENTATION_PLAN.md` §3). Update `TASKS.md`
-and the status memory when a phase lands.
+**Phase 1 ingestion is implemented** (`shelf.ingestion`): `/clip` (URL→Item) and
+`/import` (local PDF/HTML/Markdown/text→Items), with snapshots + source ledger +
+`--dry-run`, available as `shelf clip`/`shelf import` and REPL `/clip`/`/import`.
+
+Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
+`shelf.llm`, `shelf.discovery`, `shelf.watcher`, `shelf.tui`, `shelf.notion`,
+`shelf.mcp`. Do **not** quietly implement these as side effects of unrelated work —
+they are phased (see `IMPLEMENTATION_PLAN.md` §3). Update `TASKS.md` and the status
+memory when a phase lands.
 
 ## Layout
 ```

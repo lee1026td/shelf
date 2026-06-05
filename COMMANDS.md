@@ -16,6 +16,8 @@ default path is a guided flow.
 | `shelf` (no args) | — | ✅ | Inside a workspace: open the **REPL**. Outside: hint to run `shelf init`. |
 | `shelf init [PATH]` | — | ✅ | Create a local research-library workspace (dirs, `config.yaml`, SQLite). `--name`, `--force`. |
 | `shelf status` | `/status` | ✅ | Show workspace, model, remote posture, and counts (sources/inbox/review). `--workspace`. |
+| `shelf clip URL` | `/clip` | ✅ | Fetch a URL (http/https/file) and save it as an Item. `--dry-run`, `--workspace`. |
+| `shelf import PATH` | `/import` | ✅ | Import local PDF/HTML/Markdown/text into Items. `--dry-run`, `--no-recursive`. |
 | `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |
 | `shelf version` | — | ✅ | Print the installed shelf version. |
 
@@ -33,8 +35,8 @@ shelf> a free topic    # Note: chat routing - planned for Phase 2 (LLM) + 3 (dis
 shelf> /exit
 ```
 
-- REPL built-ins available **now**: `/status`, `/help` (alias `/`, `/?`), `/exit`
-  (aliases `/quit`, `/q`).
+- REPL commands available **now**: `/status`, `/clip <url>`, `/import <path>`,
+  `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
 - Every other slash command is recognized and announces its phase (see §2).
 - Free text (no leading `/`) will route to chat/`/explore` once Phase 2/3 land.
 - Input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
@@ -70,8 +72,8 @@ shown is the advanced layer. Modules backing them are stubbed or not-yet-created
 | `/track` | 🧩 (`discovery`/`watcher`) | Promote a topic to a tracked topic | review sources → frequency → refresh policy → approve |
 | `/watch` | 🧩 (`watcher`) | Manage a source or watched topic | health dashboard → add/run/pause/mute/fix |
 | `/sources` | 🗓️ | Review the source universe | Pinned/Watched/Candidate/Muted/Rejected tabs |
-| `/clip` | 🧩 (`ingestion`) | Save a URL / clipboard article now | analyze URL → suggest collection → summary card |
-| `/import` | 🧩 (`ingestion`) | Import a local PDF/HTML/Markdown folder | pick folder → file summary → parse/index plan → approve |
+| `/clip` | ✅ (`ingestion`) | Save a URL / clipboard article now | URL → parse → Item + ephemeral source (REPL: `/clip <url>`) |
+| `/import` | ✅ (`ingestion`) | Import a local PDF/HTML/Markdown folder | path → parse → Items (REPL: `/import <path>`) |
 
 ### 2.2 Review / summarize / compile (plan §5.2)
 | Slash | Status | Function | Guided flow |
