@@ -87,6 +87,8 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [x] Hardening (review): `/import` excludes the workspace's own dirs; per-file
       SAVEPOINT atomicity; URL scheme allow-list; size caps; Windows reserved-name
       slugs; `ensure_safe_streams` for non-ASCII content; relative-POSIX path storage
+- [x] Browse + triage: `/inbox` (list new), `/search <q>`, `/sources`, `/save <id>`,
+      `/mute <id>` — REPL + CLI (`shelf inbox`/`search`/`sources`)
 - [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild (deferred to discovery)
 
 ## Phase 2 — LLM gateway

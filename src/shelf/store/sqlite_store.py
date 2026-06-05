@@ -271,6 +271,37 @@ class Store:
         row = self._conn.execute("SELECT * FROM items WHERE id = ?", (item_id,)).fetchone()
         return _row_to_dict(row)
 
+    def list_items(self, *, status: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """Items, newest first. Filter by status (e.g. 'new' for the inbox)."""
+        if status is None:
+            rows = self._conn.execute(
+                "SELECT * FROM items ORDER BY captured_at DESC, id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM items WHERE status = ? ORDER BY captured_at DESC, id DESC LIMIT ?",
+                (status, limit),
+            ).fetchall()
+        return [d for d in (_row_to_dict(r) for r in rows) if d is not None]
+
+    def search_items(self, query: str, *, limit: int = 50) -> list[dict[str, Any]]:
+        """Keyword search over item title / summary / url (newest first)."""
+        like = f"%{query}%"
+        rows = self._conn.execute(
+            "SELECT * FROM items WHERE title LIKE ? OR summary LIKE ? OR url LIKE ? "
+            "ORDER BY captured_at DESC, id DESC LIMIT ?",
+            (like, like, like, limit),
+        ).fetchall()
+        return [d for d in (_row_to_dict(r) for r in rows) if d is not None]
+
+    def set_item_status(self, item_id: int, status: str) -> bool:
+        """Update an item's status (triage). Returns True if a row changed."""
+        cur = self._conn.execute(
+            "UPDATE items SET status = ?, updated_at = ? WHERE id = ?",
+            (status, _utc_now_iso(), item_id),
+        )
+        return cur.rowcount > 0
+
     # --- snapshots ----------------------------------------------------------
     def add_snapshot(
         self,

@@ -124,3 +124,24 @@ def test_chat_enters_repl(runner, workspace):
     )
     assert result.exit_code == 0, result.output
     assert "shelf REPL" in result.output
+
+
+def test_inbox_search_sources_cli(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    ws = resolve_workspace(explicit=lib)
+    with Store.open(ws.db_path) as store:
+        store.add_source("example", "https://example.com", status="watched")
+        store.add_item(title="Findable Title", url="https://example.com/1", status="new")
+
+    inbox = runner.invoke(app, ["inbox", "--workspace", str(lib)])
+    assert inbox.exit_code == 0, inbox.output
+    assert "Findable Title" in inbox.output
+
+    search = runner.invoke(app, ["search", "Findable", "--workspace", str(lib)])
+    assert search.exit_code == 0, search.output
+    assert "Findable Title" in search.output
+
+    sources = runner.invoke(app, ["sources", "--workspace", str(lib)])
+    assert sources.exit_code == 0, sources.output
+    assert "example" in sources.output

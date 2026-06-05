@@ -12,6 +12,7 @@ from shelf.cli.commands.chat import chat_command
 from shelf.cli.commands.clip import clip_command
 from shelf.cli.commands.import_cmd import import_command
 from shelf.cli.commands.init import init_command
+from shelf.cli.commands.library import inbox_command, search_command, sources_command
 from shelf.cli.commands.status import status_command
 from shelf.cli.errors import cli_errors
 from shelf.repl import run_repl
@@ -72,6 +73,11 @@ app.command("clip", help="Fetch a URL and save it as an Item (the /clip command)
 app.command("import", help="Import local PDF/HTML/Markdown files (the /import command).")(
     import_command
 )
+app.command("inbox", help="List newly collected items (the /inbox command).")(inbox_command)
+app.command("search", help="Keyword search over collected items (the /search command).")(
+    search_command
+)
+app.command("sources", help="List the source universe (the /sources command).")(sources_command)
 
 
 @app.command("version", help="Print the installed shelf version.")

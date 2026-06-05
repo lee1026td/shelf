@@ -29,6 +29,7 @@ from shelf.services import gather_status
 from shelf.store import Store
 from shelf.ui.console import console as default_console
 from shelf.ui.ingest_view import render_clip_outcome, render_import_outcome
+from shelf.ui.library_view import render_items, render_sources
 from shelf.ui.status_view import render_status, status_bar_line
 from shelf.workspace import Workspace
 
@@ -86,14 +87,9 @@ class ReplSession:
         if name in HELP_ALIASES:
             self._print_help()
             return
-        if name == "status":
-            self._print_status()
-            return
-        if name == "clip":
-            self._handle_clip(arg)
-            return
-        if name == "import":
-            self._handle_import(arg)
+        handler = self._dispatch().get(name)
+        if handler is not None:
+            handler(arg)
             return
         command = COMMANDS_BY_NAME.get(name)
         if command is None:
@@ -106,6 +102,19 @@ class ReplSession:
             f"{command.phase}.",
             style="yellow",
         )
+
+    def _dispatch(self) -> dict[str, Callable[[str], None]]:
+        """Map implemented slash-command names to their handlers."""
+        return {
+            "status": lambda _arg: self._print_status(),
+            "clip": self._handle_clip,
+            "import": self._handle_import,
+            "inbox": self._handle_inbox,
+            "search": self._handle_search,
+            "sources": lambda _arg: self._handle_sources(),
+            "save": lambda arg: self._set_item_status(arg, "saved"),
+            "mute": lambda arg: self._set_item_status(arg, "muted"),
+        }
 
     def _handle_text(self, text: str) -> None:
         self.console.print(
@@ -140,6 +149,42 @@ class ReplSession:
             self.console.print(f"Error: {exc}", style="red")
             return
         render_import_outcome(self.console, outcome)
+
+    def _handle_inbox(self, arg: str) -> None:
+        limit = int(arg) if arg.strip().isdigit() else 20
+        with Store.open(self.workspace.db_path) as store:
+            items = store.list_items(status="new", limit=limit)
+        render_items(self.console, items, title="inbox")
+        if items:
+            self.console.print(
+                "Triage: /save <id>  /mute <id>   (open a file under Items/ to read)",
+                style="dim",
+            )
+
+    def _handle_search(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /search <query>", style="yellow")
+            return
+        with Store.open(self.workspace.db_path) as store:
+            items = store.search_items(arg)
+        render_items(self.console, items, title=f"search: {arg}")
+
+    def _handle_sources(self) -> None:
+        with Store.open(self.workspace.db_path) as store:
+            sources = store.list_sources()
+        render_sources(self.console, sources)
+
+    def _set_item_status(self, arg: str, status: str) -> None:
+        if not arg.strip().isdigit():
+            self.console.print(f"Usage: /{ 'save' if status=='saved' else 'mute' } <item-id>", style="yellow")
+            return
+        item_id = int(arg.strip())
+        with Store.open(self.workspace.db_path) as store:
+            changed = store.set_item_status(item_id, status)
+        if changed:
+            self.console.print(f"Item {item_id} -> {status}.", style="green")
+        else:
+            self.console.print(f"No item with id {item_id}.", style="yellow")
 
     # --- built-ins ----------------------------------------------------------
     def _print_status(self) -> None:

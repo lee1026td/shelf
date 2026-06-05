@@ -143,3 +143,67 @@ def test_repl_import_folder(workspace, tmp_path):
     ReplSession(workspace, console=console).handle(f"/import {docs}")
     with Store.open(workspace.db_path) as store:
         assert store.counts().items == 1
+
+
+def test_browse_commands_registered_as_available_now():
+    from shelf.repl.commands import COMMANDS_BY_NAME
+
+    for name in ("inbox", "search", "sources", "save", "mute"):
+        assert COMMANDS_BY_NAME[name].available is True
+
+
+def _seed_library(workspace):
+    with Store.open(workspace.db_path) as store:
+        source_id = store.add_source("example", "https://example.com", status="watched")
+        item_id = store.add_item(
+            title="Local-first agents",
+            url="https://example.com/1",
+            source_id=source_id,
+            summary="all about agents",
+            status="new",
+        )
+        store.add_item(title="Weather report", url="https://example.com/2", status="new")
+    return item_id
+
+
+def test_repl_inbox_lists_new_items(workspace):
+    _seed_library(workspace)
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/inbox")
+    out = console.export_text()
+    assert "inbox" in out
+    assert "Local-first agents" in out
+
+
+def test_repl_search_filters(workspace):
+    _seed_library(workspace)
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/search agents")
+    out = console.export_text()
+    assert "Local-first agents" in out
+    assert "Weather report" not in out
+
+
+def test_repl_sources_lists(workspace):
+    _seed_library(workspace)
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/sources")
+    out = console.export_text()
+    assert "example" in out
+    assert "watched" in out
+
+
+def test_repl_save_changes_status(workspace):
+    item_id = _seed_library(workspace)
+    console = _rec()
+    ReplSession(workspace, console=console).handle(f"/save {item_id}")
+    assert "saved" in console.export_text()
+    with Store.open(workspace.db_path) as store:
+        assert store.get_item(item_id)["status"] == "saved"
+        assert store.counts().inbox == 1  # the other item is still new
+
+
+def test_repl_save_without_id_shows_usage(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/save")
+    assert "Usage" in console.export_text()
