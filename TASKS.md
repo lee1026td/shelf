@@ -92,7 +92,13 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [ ] `Topics/`, `Sources/` YAML writers + markdown index rebuild (deferred to discovery)
 
 ## Phase 2 — LLM gateway
-- [ ] OpenAI-compatible client, role profiles, model test, capability probe, summary card
+- [x] OpenAI-compatible client (`shelf.llm.client`, urllib, injectable/mockable)
+- [x] `ModelGateway` — role profiles, `complete`/`embed`, capability `probe`
+- [x] Egress gate: localhost allowed; remote endpoint requires `privacy.remote_llm`
+- [x] `/model` (show profiles + probe) — REPL + `shelf model` (`--no-probe`)
+- [x] `/summarize <id>` — LLM summary of an Item, persisted — REPL + `shelf summarize`
+- [x] `/ask <q>` + free-text chat — library-grounded answer — REPL + `shelf ask`
+- [ ] Summary-on-clip/import (opt-in), streaming, keyring-backed API keys (later)
 
 ## Phase 3 — Topic discovery
 - [ ] query expansion, web search, candidate extraction, source scoring, initial brief

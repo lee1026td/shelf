@@ -8,7 +8,7 @@
 
 - 제품 정의·원칙·전체 로드맵: `IMPLEMENTATION_PLAN.md`, `ARCHITECTURE.md`
 - 데이터 스키마: `SCHEMA.md` · 명령 목록: `COMMANDS.md` · 작업 보드: `TASKS.md`
-- 현재 테스트: **102개 전부 통과**
+- 현재 테스트: **129개 전부 통과**
 
 ---
 
@@ -18,7 +18,9 @@
 |---|---|---|
 | **Phase 0** 워크스페이스 골격 | ✅ 완료 | `shelf init`, 디렉토리 레이아웃, SQLite, config, `/status`, **REPL** |
 | **Phase 1** 로컬 라이브러리 | ✅ 완료 | `/clip`(URL→Item), `/import`(로컬 파일→Items), 파싱, 스냅샷, 원장(ledger) |
-| Phase 2~7 | ⏳ stub | LLM/discovery/watcher/TUI/Notion/MCP — 인터페이스만, 호출 시 `FeatureNotReady` |
+| **Phase 1.5** 활용 | ✅ 완료 | `/inbox`, `/search`, `/sources`, `/save`, `/mute` (browse/triage) |
+| **Phase 2** LLM gateway | ✅ 완료 | `/model`, `/summarize`, `/ask` + 자유텍스트 chat (OpenAI-compatible, egress gate) |
+| Phase 3~7 | ⏳ stub | discovery/watcher/TUI/Notion/MCP — 인터페이스만, 호출 시 `FeatureNotReady` |
 
 핵심 설계 원칙(헌법)은 모든 구현에 공통 적용됩니다: **로컬이 정본(canonical)**,
 Notion은 선택적 표면 / **쓰기 전 계획·승인** / **discover는 자유, watch는 신중** /
@@ -33,7 +35,7 @@ Notion은 선택적 표면 / **쓰기 전 계획·승인** / **discover는 자�
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
 
-# 2) 테스트 (102개)
+# 2) 테스트 (129개)
 .\.venv\Scripts\python.exe -m pytest -q
 
 # 3) 워크스페이스 만들고 라이브러리에 자료 넣어보기
@@ -395,22 +397,109 @@ Phase 1도 6개 차원 × 독립검증(29 에이전트) 리뷰를 돌렸고, 확
 
 ---
 
-## 2. 테스트 (102개 전부 통과)
+# Phase 1.5 — 수집물 활용 (browse / triage, 로컬·LLM 불필요)
+
+## 목표
+`/clip`·`/import`로 **모은** 것을 바로 **훑고/검색하고/분류**한다. LLM 없이 완전 오프라인.
+
+## 명령 (REPL + CLI)
+| 명령 | 동작 |
+|---|---|
+| `/inbox` (`shelf inbox`) | `status='new'` 인 수집물 목록 (최신순, `--limit`) |
+| `/search <q>` (`shelf search`) | title/summary/url 키워드 검색 |
+| `/sources` (`shelf sources`) | source universe를 status별로 나열 |
+| `/save <id>` / `/mute <id>` | 항목 status 변경(inbox에서 빼냄) |
+
+store에 `list_items`/`search_items`/`set_item_status` 추가. 실제 출력:
+
+```
+$ shelf inbox
+                                   inbox (5)
++-----------------------------------------------------------------+
+| ID | Title                       | Status | Captured   | URL    |
+|----+-----------------------------+--------+------------+--------|
+|  5 | Local-First Document Agents | new    | 2026-06-05 | file://|
+|  4 | Local-First Document Agents | new    | 2026-06-05 | file://|
+|  3 | shelf (가칭)                 | new    | 2026-06-05 | file://|
+| ...                                                             |
+
+$ shelf sources
+| Status    | Slug       | Role    | URL          |
+| ephemeral | local-file | clipped | file:///...  |
+
+shelf> /save 1
+Item 1 -> saved.        # inbox에서 빠짐 (status='saved')
+```
+
+---
+
+# Phase 2 — LLM gateway
+
+## 목표
+"저장소"를 "**똑똑한 라이브러리**"로. 수집물을 **요약**하고, 라이브러리에 **질문**한다.
+
+## 구조 (`shelf.llm`)
+- `OpenAICompatibleClient` — stdlib `urllib`로 `/chat/completions`·`/embeddings` POST.
+  의존성 0(주입식 → 테스트는 `FakeChatClient`로 **네트워크 없이** 검증).
+- `ModelGateway(config, client=None)` — config의 role 프로필(`planner`/`embeddings`)을
+  사용해 `complete`/`embed`/`probe`(capability/연결성 점검).
+- **Egress gate(프라이버시)**: `localhost`/`127.0.0.1`은 허용(로컬 모델). **원격** 엔드포인트는
+  `privacy.remote_llm: true`가 있어야 호출 — 없으면 `LLMError`로 차단. API 키는
+  `$SHELF_API_KEY`(설정 파일에 평문 저장 안 함).
+
+## 명령 (REPL + CLI)
+| 명령 | 동작 |
+|---|---|
+| `/model` (`shelf model`) | 프로필 표시 + 엔드포인트 probe (CLI `--no-probe`로 오프라인 표시) |
+| `/summarize <id>` (`shelf summarize`) | Item 본문을 LLM으로 요약해 `items.summary`에 저장 |
+| `/ask <q>` (`shelf ask`) + **자유 텍스트** | 최근 라이브러리 항목을 context로 답변(grounded) |
+
+실제 출력 (`--no-probe`, 오프라인):
+
+```
+$ shelf model --no-probe
+                                    models
++---------------------------------------------------------------------+
+| Role       | Provider          | Model         | Base URL      | Caps|
+| planner    | openai_compatible | qwen3:32b     | http://local..| ... |
+| embeddings | openai_compatible | nomic-embed.. | http://local..| ... |
+```
+
+## 직접 확인 방법
+```powershell
+# 로컬 모델(Ollama 등)이 떠 있으면:
+shelf model                          # 엔드포인트 연결성 probe
+shelf summarize 3                    # 3번 Item을 LLM 요약 (요약이 DB에 저장됨)
+shelf ask "내 라이브러리에 뭐가 있지?"   # 라이브러리 기반 답변
+# REPL 안에서는 슬래시 없이 그냥 질문을 입력해도 /ask로 동작
+```
+
+## 테스트 전략
+`FakeChatClient`(canned 응답)를 주입해 gateway/summarize/ask/egress-gate를 **네트워크 없이**
+결정적으로 검증. 실제 HTTP 파싱은 `_post`만 monkeypatch해 OpenAI 응답 포맷 파싱을 검증.
+
+> 참고: Phase 2의 `/ask`는 "최근 항목 context" 수준의 가벼운 grounding입니다. 벡터 인덱스 기반
+> 정밀 검색 + 완전한 citation은 Phase 3(discovery)에서 올라갑니다.
+
+---
+
+## 2. 테스트 (129개 전부 통과)
 
 | 파일 | 개수 | 검증 대상 |
 |---|---:|---|
 | `test_config.py` | 6 | 기본값(local-only), YAML 라운드트립, `off` 함정, 문자열 boolean |
 | `test_workspace.py` | 7 | 레이아웃 생성, `--force` 보존, 탐색(cwd/`$SHELF_HOME`) |
-| `test_store.py` | 8 | 전체 테이블 생성, counts, CRUD, 컨텍스트매니저 커밋 |
+| `test_store.py` | 11 | 테이블 생성, counts, CRUD, list/search/status, 컨텍스트매니저 |
 | `test_status.py` | 4 | 상태바 포맷/홈 축약, 패널 렌더 |
-| `test_cli.py` | 12 | `--help`/version/init→status, 0이 아닌 counts, 손상 DB 깔끔실패, bare shelf→REPL |
-| `test_repl.py` | 15 | 슬래시 디스패치, 루프, BOM/mojibake, `/clip`·`/import` |
-| `test_stubs.py` | 14 | 각 stub이 올바른 phase로 `FeatureNotReady` |
+| `test_cli.py` | 14 | help/version/init→status, REPL, inbox/search/sources, model |
+| `test_repl.py` | 27 | 디스패치, 루프, BOM, clip/import, inbox/search/save, ask/summarize/model |
+| `test_stubs.py` | 11 | 남은 stub이 올바른 phase로 `FeatureNotReady` |
 | `test_encoding.py` | 6 | 콘솔 ASCII 계약 + `ensure_safe_streams` |
 | `test_util.py` | 6 | slugify(유니코드/예약어/fallback), sha256 |
 | `test_ingestion.py` | 13 | 파서(html/md/text/pdf), clip, import, dry-run, 유니코드 |
-| `test_ingestion_hardening.py` | 11 | 리뷰 회귀: title 누설, 자기복제 제외, 스냅샷 중복제거, 스킴 차단, SAVEPOINT 원자성, 상대경로 |
-| **합계** | **102** | |
+| `test_ingestion_hardening.py` | 11 | 리뷰 회귀: title 누설, 자기복제 제외, 중복제거, 스킴 차단, SAVEPOINT |
+| `test_llm.py` | 13 | gateway(complete/embed/probe), egress gate, summarize/ask, 응답 파싱 |
+| **합계** | **129** | |
 
 ---
 
@@ -421,25 +510,26 @@ Phase 1도 6개 차원 × 독립검증(29 에이전트) 리뷰를 돌렸고, 확
   워크스페이스 레이아웃, SQLite(8객체), config, `gather_status` 공유 서비스
 - Phase 1: `/clip`(URL→Item), `/import`(파일/폴더→Items), html/md/text/pdf 파싱,
   스냅샷(중복제거)+정규화, source ledger, `--dry-run`, 리뷰 하드닝 전부
+- Phase 1.5: `/inbox`·`/search`·`/sources`·`/save`·`/mute` (browse/triage)
+- Phase 2: LLM gateway(OpenAI-compatible, probe, egress gate), `/model`·`/summarize`·`/ask`
+  + 자유 텍스트 chat
 
 **부분(토대만, 나머지 보류)**
-- Phase 1 잔여: `Topics/`·`Sources/` YAML writer, 마크다운 인덱스 rebuild → 주제 개념이
-  본격화되는 discovery(Phase 3)와 함께 구현 예정
+- Phase 1 잔여: `Topics/`·`Sources/` YAML writer, 마크다운 인덱스 rebuild → discovery(Phase 3)와 함께
+- Phase 2 잔여: clip/import 시 자동 요약(opt-in), streaming, keyring 기반 API 키
 
 **보류(의도적 stub — 호출 시 `FeatureNotReady`)**
-- LLM gateway(P2) · 토픽 discovery/deep-research(P3) · watcher 데몬(P4) ·
+- 토픽 discovery/deep-research(P3) · watcher 데몬(P4) ·
   풀 Textual TUI(P5) · Notion sync(P6) · MCP(P7)
 
 ---
 
 ## 4. 다음 단계 제안
 
-1. **Phase 2 — LLM gateway**: OpenAI-compatible 클라이언트 + capability probe + 요약카드.
-   이게 들어오면 import/clip한 Item에 **요약(summary)** 을 실제 생성하고, REPL 자유텍스트
-   chat이 동작하기 시작합니다.
-2. **Phase 3 — 토픽 discovery**: 자연어 주제 → 웹검색 → source 후보 → scoring → 초기 brief.
-   제품의 핵심 wedge가 처음으로 end-to-end 작동.
-3. (대안) Phase 1 잔여 마무리: `/inbox`로 수집물 훑기 + `Topics`/`Sources` YAML 동기화.
+1. **Phase 3 — 토픽 discovery**: 자연어 주제 → 웹검색 → source 후보 → scoring → 초기 brief.
+   제품의 핵심 wedge가 처음으로 end-to-end 작동(이미 만든 LLM gateway + ingestion 활용).
+2. **Phase 4 — watcher**: 등록 source 주기적 체크 + snapshot diff + 주간 digest.
+3. (보완) Phase 2 자동 요약 on-clip/import, Phase 1 `Topics`/`Sources` YAML 동기화.
 
-> 작업 트리는 모두 untracked(커밋 안 함), `.venv`·`_demo/`는 gitignore. 원하시면
-> 지금까지를 phase별 커밋으로 정리해 드릴 수 있습니다.
+> 작업은 브랜치 `feat/1-clipper`에 phase별 커밋으로 정리돼 있습니다(push는 요청 시).
+> `.venv`·`_demo/`는 gitignore.

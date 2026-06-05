@@ -21,6 +21,9 @@ default path is a guided flow.
 | `shelf inbox` | `/inbox` | ✅ | List newly collected items (status='new'). `--limit`. |
 | `shelf search Q` | `/search` | ✅ | Keyword search over items (title/summary/url). |
 | `shelf sources` | `/sources` | ✅ | List the source universe by status. |
+| `shelf model` | `/model` | ✅ | Show model profiles + probe the endpoint. `--no-probe`. |
+| `shelf ask Q` | `/ask` | ✅ | Answer a question grounded in the library (also: type free text in the REPL). |
+| `shelf summarize ID` | `/summarize` | ✅ | LLM-summarize an item and store the summary. |
 | `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |
 | `shelf version` | — | ✅ | Print the installed shelf version. |
 
@@ -40,9 +43,12 @@ shelf> /exit
 
 - REPL commands available **now**: `/status`, `/clip <url>`, `/import <path>`,
   `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`,
+  `/ask <q>`, `/summarize <id>`, `/model`,
   `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
+- **Free text** (no leading `/`) is answered from the library via the model
+  gateway (`/ask`). Discovery/web research routing arrives in Phase 3.
 - Every other slash command is recognized and announces its phase (see §2).
-- Free text (no leading `/`) will route to chat/`/explore` once Phase 2/3 land.
+- Free text (no leading `/`) is answered from the library via the model gateway.
 - Input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
 
 ### `shelf init`
@@ -89,12 +95,12 @@ shown is the advanced layer. Modules backing them are stubbed or not-yet-created
 | `/wiki` | 🗓️ | Update/browse/rollback local wiki or Notion page | tree → stale page → patch → approve |
 | `/diff` | 🧩 (`watcher`) | Review snapshot/wiki/compilation changes | before/after → semantic summary → evidence |
 | `/search` | ✅ | Keyword search across collected items | `shelf search <q>` / REPL `/search <q>` (semantic search: Phase 3) |
-| `/ask` | 🧩 (`llm`) | Citation-backed Q&A over library + web | local-only/web → cited answer |
+| `/ask` | ✅ (`llm`) | Q&A grounded in the library | recent items as context → answer (web + full citations: Phase 3) |
 
 ### 2.3 Config / integration / safety (plan §5.3)
 | Slash | Status | Function | Guided flow |
 |---|---|---|---|
-| `/model` | 🧩 (`llm`) | Configure OpenAI-compatible endpoints + role profiles | provider → base_url → test → capability probe |
+| `/model` | ✅ (`llm`) | Show OpenAI-compatible profiles + probe endpoint | `shelf model` / `/model` (interactive setup wizard: Phase 5) |
 | `/mcp` | 🧩 (`mcp`) | Register/inspect local/remote MCP servers | add/list/inspect → trust → permission prompt |
 | `/privacy` | 🗓️ | Audit egress paths and rules | show data-leaves-machine paths + rules |
 | `/notion` | 🧩 (`notion`) | Manage Notion connection/schema/sync mode | token → parent page → DB create → sync mode |

@@ -145,3 +145,14 @@ def test_inbox_search_sources_cli(runner, tmp_path):
     sources = runner.invoke(app, ["sources", "--workspace", str(lib)])
     assert sources.exit_code == 0, sources.output
     assert "example" in sources.output
+
+
+def test_model_command_shows_profiles(runner, tmp_path):
+    lib = tmp_path / "lib"
+    assert runner.invoke(app, ["init", str(lib)]).exit_code == 0
+    # --no-probe avoids any network call to the configured endpoint.
+    result = runner.invoke(app, ["model", "--no-probe", "--workspace", str(lib)])
+    assert result.exit_code == 0, result.output
+    # Role names survive the 80-col table; the model id can be truncated by Rich.
+    assert "planner" in result.output
+    assert "embeddings" in result.output

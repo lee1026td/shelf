@@ -17,8 +17,10 @@ from collections.abc import Callable
 from rich.console import Console
 from rich.table import Table
 
+from shelf.config import load_config
 from shelf.errors import ShelfError
 from shelf.ingestion import Fetcher, clip_url, import_path
+from shelf.llm import ModelGateway, ask_library, summarize_item
 from shelf.repl.commands import (
     COMMANDS_BY_NAME,
     EXIT_ALIASES,
@@ -30,6 +32,7 @@ from shelf.store import Store
 from shelf.ui.console import console as default_console
 from shelf.ui.ingest_view import render_clip_outcome, render_import_outcome
 from shelf.ui.library_view import render_items, render_sources
+from shelf.ui.model_view import render_models
 from shelf.ui.status_view import render_status, status_bar_line
 from shelf.workspace import Workspace
 
@@ -60,11 +63,18 @@ class ReplSession:
         workspace: Workspace,
         console: Console | None = None,
         fetcher: Fetcher | None = None,
+        gateway: ModelGateway | None = None,
     ) -> None:
         self.workspace = workspace
         self.console = console or default_console
         self.fetcher = fetcher  # injectable for tests; None -> default HttpFetcher
+        self._gateway = gateway  # injectable for tests; None -> built from config
         self.running = True
+
+    def _get_gateway(self) -> ModelGateway:
+        if self._gateway is None:
+            self._gateway = ModelGateway(load_config(self.workspace.config_path))
+        return self._gateway
 
     def handle(self, line: str) -> None:
         text = _strip_leading_junk(line)
@@ -114,14 +124,49 @@ class ReplSession:
             "sources": lambda _arg: self._handle_sources(),
             "save": lambda arg: self._set_item_status(arg, "saved"),
             "mute": lambda arg: self._set_item_status(arg, "muted"),
+            "ask": self._handle_ask,
+            "summarize": self._handle_summarize,
+            "model": lambda _arg: self._handle_model(),
         }
 
     def _handle_text(self, text: str) -> None:
-        self.console.print(
-            "Note: free-text chat / research routing is not implemented yet - "
-            "planned for Phase 2 (LLM gateway) + Phase 3 (discovery). Type /help.",
-            style="yellow",
-        )
+        # Free text is a library-grounded question (Phase 2). Discovery/web (Phase 3).
+        self._answer(text)
+
+    def _handle_ask(self, arg: str) -> None:
+        if not arg:
+            self.console.print("Usage: /ask <question>", style="yellow")
+            return
+        self._answer(arg)
+
+    def _answer(self, question: str) -> None:
+        try:
+            gateway = self._get_gateway()
+            with Store.open(self.workspace.db_path) as store:
+                answer = ask_library(self.workspace, store, gateway, question)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        self.console.print(answer, highlight=False)
+
+    def _handle_summarize(self, arg: str) -> None:
+        if not arg.strip().isdigit():
+            self.console.print("Usage: /summarize <item-id>", style="yellow")
+            return
+        item_id = int(arg.strip())
+        try:
+            gateway = self._get_gateway()
+            with Store.open(self.workspace.db_path) as store:
+                summary = summarize_item(self.workspace, store, gateway, item_id)
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False)
+
+    def _handle_model(self) -> None:
+        gateway = self._get_gateway()
+        config = load_config(self.workspace.config_path)
+        render_models(self.console, config, gateway.probe("planner"))
 
     def _handle_clip(self, arg: str) -> None:
         if not arg:
@@ -208,7 +253,7 @@ class ReplSession:
             )
         self.console.print(table)
         self.console.print(
-            "Type a topic in plain text to chat (coming in Phase 2/3). /exit to quit.",
+            "Type a question in plain text to ask the library. /exit to quit.",
             style="dim",
         )
 

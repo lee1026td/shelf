@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from rich.console import Console
 
+from shelf.config import load_config
+from shelf.ingestion import import_path
+from shelf.llm import ModelGateway
 from shelf.repl.session import ReplSession, run_repl
 from shelf.store import Store
-from tests.fixtures import FakeFetcher
+from tests.fixtures import FakeChatClient, FakeFetcher
+
+
+def _gateway(workspace, reply="canned answer"):
+    return ModelGateway(load_config(workspace.config_path), client=FakeChatClient(reply=reply))
 
 
 def _rec() -> Console:
@@ -18,7 +25,7 @@ def test_clip_import_registered_as_available_now():
 
     assert COMMANDS_BY_NAME["clip"].available is True
     assert COMMANDS_BY_NAME["import"].available is True
-    assert COMMANDS_BY_NAME["ask"].available is False  # still Phase 2
+    assert COMMANDS_BY_NAME["explore"].available is False  # still Phase 3
 
 
 def test_status_runs_for_real(workspace):
@@ -49,12 +56,11 @@ def test_unimplemented_slash_announces_phase(workspace):
     assert session.running is True
 
 
-def test_free_text_announces_chat_phase(workspace):
+def test_free_text_asks_the_library(workspace):
     console = _rec()
-    ReplSession(workspace, console=console).handle("이 주제가 궁금해")
-    out = console.export_text()
-    assert "Phase 2" in out
-    assert out.isascii()  # the echoed notice must be ASCII (cp949 safety)
+    session = ReplSession(workspace, console=console, gateway=_gateway(workspace, "the answer"))
+    session.handle("무엇이든 물어봐")
+    assert "the answer" in console.export_text()
 
 
 def test_exit_stops_loop(workspace):
@@ -207,3 +213,47 @@ def test_repl_save_without_id_shows_usage(workspace):
     console = _rec()
     ReplSession(workspace, console=console).handle("/save")
     assert "Usage" in console.export_text()
+
+
+def test_llm_commands_registered_as_available_now():
+    from shelf.repl.commands import COMMANDS_BY_NAME
+
+    for name in ("ask", "summarize", "model"):
+        assert COMMANDS_BY_NAME[name].available is True
+
+
+def test_repl_ask_uses_gateway(workspace):
+    console = _rec()
+    session = ReplSession(workspace, console=console, gateway=_gateway(workspace, "grounded reply"))
+    session.handle("/ask what is in my library?")
+    assert "grounded reply" in console.export_text()
+
+
+def test_repl_ask_without_arg_shows_usage(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console).handle("/ask")
+    assert "Usage" in console.export_text()
+
+
+def test_repl_summarize_updates_item(workspace, tmp_path):
+    docs = tmp_path / "d"
+    docs.mkdir()
+    (docs / "a.md").write_text("# Topic\n\nA long body about local agents.", encoding="utf-8")
+    with Store.open(workspace.db_path) as store:
+        outcome = import_path(workspace, docs, store=store)
+    item_id = outcome.imported[0].item_id
+
+    console = _rec()
+    session = ReplSession(workspace, console=console, gateway=_gateway(workspace, "short summary"))
+    session.handle(f"/summarize {item_id}")
+    assert "short summary" in console.export_text()
+    with Store.open(workspace.db_path) as store:
+        assert store.get_item(item_id)["summary"] == "short summary"
+
+
+def test_repl_model_shows_profiles_and_probe(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console, gateway=_gateway(workspace)).handle("/model")
+    out = console.export_text()
+    assert "qwen3:32b" in out
+    assert "reachable" in out.lower()

@@ -302,6 +302,14 @@ class Store:
         )
         return cur.rowcount > 0
 
+    def update_item_summary(self, item_id: int, summary: str) -> bool:
+        """Replace an item's summary (e.g. an LLM-generated one). True if changed."""
+        cur = self._conn.execute(
+            "UPDATE items SET summary = ?, updated_at = ? WHERE id = ?",
+            (summary, _utc_now_iso(), item_id),
+        )
+        return cur.rowcount > 0
+
     # --- snapshots ----------------------------------------------------------
     def add_snapshot(
         self,

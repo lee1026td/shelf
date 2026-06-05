@@ -53,3 +53,19 @@ class FakeFetcher:
             raw=self.raw,
             fetched_at=utc_now_iso(),
         )
+
+
+class FakeChatClient:
+    """A network-free :class:`ChatClient` for the ModelGateway."""
+
+    def __init__(self, reply: str = "canned answer", embedding=(0.1, 0.2)) -> None:
+        self.reply = reply
+        self.embedding = list(embedding)
+        self.calls: list = []
+
+    def chat(self, base_url, model, messages, *, api_key=None, max_tokens=512, temperature=0.2):
+        self.calls.append((base_url, model, messages))
+        return self.reply
+
+    def embeddings(self, base_url, model, texts, *, api_key=None):
+        return [self.embedding for _ in texts]
