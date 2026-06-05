@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 from shelf.errors import LLMError
-from shelf.llm.client import ChatClient, OpenAICompatibleClient
+from shelf.llm.client import DEFAULT_MAX_TOKENS, ChatClient, OpenAICompatibleClient
 
 if TYPE_CHECKING:
     from shelf.config import Config, ModelProfile
@@ -71,7 +71,7 @@ class ModelGateway:
         *,
         role: str = "planner",
         system: str | None = None,
-        max_tokens: int = 512,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float = 0.2,
     ) -> str:
         profile = self._profile(role)

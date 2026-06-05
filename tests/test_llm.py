@@ -90,6 +90,31 @@ def test_client_chat_parses_openai_format(monkeypatch):
     assert client.chat("http://x/v1", "m", [{"role": "user", "content": "q"}]) == "hi"
 
 
+def test_client_chat_falls_back_to_reasoning_when_content_empty(monkeypatch):
+    # Thinking models (qwen3 via Ollama) can return content='' + reasoning=...
+    client = OpenAICompatibleClient()
+    monkeypatch.setattr(
+        client,
+        "_post",
+        lambda url, payload, api_key: {
+            "choices": [{"message": {"content": "", "reasoning": "The answer is Paris."}}]
+        },
+    )
+    assert client.chat("http://x/v1", "m", [{"role": "user", "content": "q"}]) == "The answer is Paris."
+
+
+def test_client_chat_strips_think_tags(monkeypatch):
+    client = OpenAICompatibleClient()
+    monkeypatch.setattr(
+        client,
+        "_post",
+        lambda url, payload, api_key: {
+            "choices": [{"message": {"content": "<think>hmm let me see</think>Paris."}}]
+        },
+    )
+    assert client.chat("http://x/v1", "m", [{"role": "user", "content": "q"}]) == "Paris."
+
+
 def test_client_embeddings_parses_openai_format(monkeypatch):
     client = OpenAICompatibleClient()
     monkeypatch.setattr(

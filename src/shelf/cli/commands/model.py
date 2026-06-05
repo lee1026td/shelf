@@ -5,6 +5,7 @@ from typing import Optional
 
 import typer
 from rich.panel import Panel
+from rich.text import Text
 
 from shelf.cli.errors import cli_errors
 from shelf.config import load_config
@@ -93,7 +94,7 @@ def summarize_command(
         gateway = ModelGateway(load_config(ws.config_path))
         with Store.open(ws.db_path) as store:
             summary = summarize_item(ws, store, gateway, item_id)
-        console.print(Panel(summary, title=f"item {item_id} summary", border_style="green"))
+        console.print(Panel(Text(summary), title=f"item {item_id} summary", border_style="green"))
 
 
 def ask_command(
@@ -106,4 +107,4 @@ def ask_command(
         gateway = ModelGateway(load_config(ws.config_path))
         with Store.open(ws.db_path) as store:
             answer = ask_library(ws, store, gateway, question)
-        console.print(Panel(answer, title="answer", border_style="cyan"))
+        console.print(Panel(Text(answer), title="answer", border_style="cyan"))

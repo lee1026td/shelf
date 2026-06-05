@@ -147,7 +147,15 @@ class ReplSession:
         except ShelfError as exc:
             self.console.print(f"Error: {exc}", style="red")
             return
-        self.console.print(answer, highlight=False)
+        if not answer.strip():
+            self.console.print(
+                "(the model returned an empty answer - try a larger model "
+                "or a non-thinking one)",
+                style="yellow",
+            )
+            return
+        # markup=False: LLM text often contains '[' which Rich would mis-parse.
+        self.console.print(answer, highlight=False, markup=False)
 
     def _handle_summarize(self, arg: str) -> None:
         if not arg.strip().isdigit():
@@ -161,7 +169,7 @@ class ReplSession:
         except ShelfError as exc:
             self.console.print(f"Error: {exc}", style="red")
             return
-        self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False)
+        self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False, markup=False)
 
     def _handle_model(self, arg: str = "") -> None:
         tokens = arg.split()

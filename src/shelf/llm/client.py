@@ -7,6 +7,7 @@ gateway can be tested with a fake client and later swap in httpx/streaming.
 from __future__ import annotations
 
 import json
+import re
 import urllib.error
 import urllib.request
 from typing import Any, Protocol
@@ -14,6 +15,24 @@ from typing import Any, Protocol
 from shelf.errors import LLMError
 
 DEFAULT_TIMEOUT = 60
+# Generous so reasoning models (qwen3, deepseek-r1, ...) can think AND still emit a
+# final answer within budget. Too low and `content` comes back empty (all thinking).
+DEFAULT_MAX_TOKENS = 4096
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+
+
+def _message_text(message: dict[str, Any]) -> str:
+    """Extract the assistant text from a chat message.
+
+    Prefers ``content``; falls back to ``reasoning``/``reasoning_content`` for
+    thinking models that leave ``content`` empty (e.g. qwen3 via Ollama). Strips any
+    inline ``<think>...</think>`` block.
+    """
+    content = (message.get("content") or "").strip()
+    if not content:
+        content = (message.get("reasoning") or message.get("reasoning_content") or "").strip()
+    return _THINK_RE.sub("", content).strip()
 
 
 class ChatClient(Protocol):
@@ -76,7 +95,7 @@ class OpenAICompatibleClient:
         messages: list[dict[str, str]],
         *,
         api_key: str | None = None,
-        max_tokens: int = 512,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float = 0.2,
     ) -> str:
         url = base_url.rstrip("/") + "/chat/completions"
@@ -92,9 +111,10 @@ class OpenAICompatibleClient:
             api_key,
         )
         try:
-            return str(body["choices"][0]["message"]["content"])
+            message = body["choices"][0]["message"]
         except (KeyError, IndexError, TypeError) as exc:
             raise LLMError(f"Unexpected chat response from {url}: {body!r:.200}") from exc
+        return _message_text(message)
 
     def embeddings(
         self, base_url: str, model: str, texts: list[str], *, api_key: str | None = None
