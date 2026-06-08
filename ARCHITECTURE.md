@@ -136,8 +136,9 @@ src/shelf/
     adapter.py               #   NotionAdapter interface
   mcp/                       # ── STUB (Phase 7) ──
     registry.py              #   McpRegistry interface
-  tui/                       # ── STUB (Phase 5: full Textual app) ──
-    app.py                   #   launch_tui()
+  tui/                       # ── IMPLEMENTED (Phase 5, first slice) ── Textual app
+    app.py                   #   ShelfApp: scroll transcript + docked input + slash
+                             #   dropdown + tool-call cards; launch_tui()
 ```
 
 ### Why `ui/` and `tui/` are separate

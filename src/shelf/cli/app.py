@@ -8,7 +8,7 @@ Typer introspects real annotations on the callback below.
 import typer
 
 from shelf import __version__
-from shelf.cli.commands.chat import chat_command
+from shelf.cli.commands.chat import chat_command, enter_chat, tui_command
 from shelf.cli.commands.clip import clip_command
 from shelf.cli.commands.compile_cmd import compile_command
 from shelf.cli.commands.explore import explore_command
@@ -19,7 +19,6 @@ from shelf.cli.commands.model import ask_command, model_app, summarize_command
 from shelf.cli.commands.status import status_command
 from shelf.cli.commands.track import track_command
 from shelf.cli.errors import cli_errors
-from shelf.repl import run_repl
 from shelf.ui.console import ensure_safe_streams, info
 from shelf.workspace import Workspace
 
@@ -64,7 +63,7 @@ def main_callback(
                 "or `shelf --help` for commands."
             )
             raise typer.Exit(0)
-        run_repl(workspace)
+        enter_chat(workspace)
 
 
 # Register commands. Each command owns its own error handling via `cli_errors()`.
@@ -72,7 +71,10 @@ app.command("init", help="Create a local research-library workspace.")(init_comm
 app.command("status", help="Show workspace, model, and library counts (the /status view).")(
     status_command
 )
-app.command("chat", help="Enter the research REPL (slash commands + chat).")(chat_command)
+app.command("chat", help="Enter the research chat (TUI on a terminal, REPL when piped).")(
+    chat_command
+)
+app.command("tui", help="Open the full-screen Textual TUI.")(tui_command)
 app.command("clip", help="Fetch a URL and save it as an Item (the /clip command).")(clip_command)
 app.command("import", help="Import local PDF/HTML/Markdown files (the /import command).")(
     import_command

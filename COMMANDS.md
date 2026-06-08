@@ -13,7 +13,7 @@ default path is a guided flow.
 
 | CLI | Slash | Status | Description |
 |---|---|---|---|
-| `shelf` (no args) | — | ✅ | Inside a workspace: open the **REPL**. Outside: hint to run `shelf init`. |
+| `shelf` (no args) | — | ✅ | Inside a workspace: open the **chat** — the Textual **TUI** on a terminal, the line **REPL** when piped. Outside: hint to run `shelf init`. |
 | `shelf init [PATH]` | — | ✅ | Create a local research-library workspace (dirs, `config.yaml`, SQLite). `--name`, `--force`. |
 | `shelf status` | `/status` | ✅ | Show workspace, model, remote posture, and counts (sources/inbox/review). `--workspace`. |
 | `shelf clip URL` | `/clip` | ✅ | Fetch a URL (http/https/file) and save it as an Item. `--dry-run`, `--workspace`. |
@@ -27,10 +27,17 @@ default path is a guided flow.
 | `shelf track TOPIC` | `/track` | ✅ | Mark a topic as **tracked** with a refresh frequency (`--frequency weekly\|daily\|monthly`). Records intent only — sources stay in review until approved; periodic collection is the Phase-4 watcher. |
 | `shelf compile TOPIC` | `/compile` | ✅ | Compile a **cited** document from the library (`--kind brief\|landscape\|faq\|timeline`, `--steps N`). Runs the harness over the `compile` toolset (read-only) and saves the Markdown under `Compilations/`. |
 | `shelf summarize ID` | `/summarize` | ✅ | LLM-summarize an item and store the summary. |
-| `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |
+| `shelf chat` | — | ✅ | Enter the research chat (same as bare `shelf`): TUI on a terminal, REPL when piped. |
+| `shelf tui` | — | ✅ | Force the full-screen **Textual TUI**: scrollable transcript, bottom-docked input, `/` command dropdown, tool-call cards. |
 | `shelf version` | — | ✅ | Print the installed shelf version. |
 
-### The REPL (thin shell — full Textual TUI is Phase 5)
+### The chat surface — TUI (Phase 5, first slice) + line REPL fallback
+
+On an interactive terminal, `shelf` opens the **Textual TUI**: a scrollable transcript,
+a bottom-docked input bordered by horizontal rules with a `>` prompt, a `/` dropdown that
+lists matching commands as you type, and agent **tool calls rendered as cards** with a
+live trace. When stdin/stdout is piped (scripts, tests), it falls back to the line **REPL**
+below — same slash commands, same dispatch (`shelf.repl.session.ReplSession`).
 
 ```
 $ shelf
@@ -44,15 +51,15 @@ shelf> a free topic    # library-aware chat via the model gateway
 shelf> /exit
 ```
 
-- REPL commands available **now**: `/status`, `/clip <url>`, `/import <path>`,
-  `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`,
-  `/ask <q>`, `/summarize <id>`, `/model`,
+- Commands available **now** (TUI + REPL): `/status`, `/clip <url>`, `/import <path>`,
+  `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`, `/ask <q>`,
+  `/summarize <id>`, `/model`, `/explore <topic>`, `/track <topic>`, `/compile <topic>`,
   `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
-- **Free text** (no leading `/`) is a chat with the model (same path as `/ask`):
-  it converses normally and grounds in your library items only when they're
-  relevant, citing the titles it used. Discovery/web routing arrives in Phase 3.
+- **Free text** (no leading `/`) is a chat with the model: it converses normally and
+  grounds in your library items only when relevant, citing the titles it used.
 - Every other slash command is recognized and announces its phase (see §2).
-- Input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
+- REPL input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
+  The TUI input adds the `/` command dropdown and Tab-completion.
 
 ### `shelf init`
 ```

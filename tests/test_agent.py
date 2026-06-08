@@ -115,6 +115,20 @@ def test_loop_emits_retry_event_on_unknown_tool():
     assert any(k == "retry" for k, _ in events)
 
 
+def test_loop_accepts_prose_reply_as_final():
+    # A small model that answers in plain prose (no final-action JSON) shouldn't have
+    # its answer discarded as an error after the retries.
+    reg, _ = _recording_registry()
+    result = AgentLoop(
+        _gateway(["Here is the answer in plain prose, with no JSON action at all."]),
+        reg,
+        ToolContext(),
+    ).run("g", toolset="t", max_steps=5)
+    assert result.stopped_reason == "final"
+    assert "plain prose" in result.answer
+    assert result.steps == []
+
+
 def test_loop_force_finals_at_step_budget():
     reg, _ = _recording_registry()
     replies = [

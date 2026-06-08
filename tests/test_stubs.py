@@ -7,7 +7,6 @@ import pytest
 from shelf.errors import FeatureNotReady, ShelfError
 from shelf.mcp import McpRegistry, McpServer
 from shelf.notion import NotionAdapter
-from shelf.tui import ShelfTUI, launch_tui
 from shelf.watcher import WatcherDaemon
 
 
@@ -17,11 +16,10 @@ def test_feature_not_ready_is_shelf_and_notimplemented():
 
 
 STUBS = [
-    # Phase 3 (discovery / `/explore`) is now implemented — see test_discovery.py.
+    # Phase 3 (discovery) and the Phase-5 TUI are implemented — see test_discovery.py
+    # and test_tui.py.
     (lambda: WatcherDaemon().run_once(), 4),
     (lambda: WatcherDaemon().start(), 4),
-    (lambda: launch_tui(), 5),
-    (lambda: ShelfTUI().run(), 5),
     (lambda: NotionAdapter().sync(), 6),
     (lambda: NotionAdapter().import_reviews(), 6),
     (lambda: McpRegistry().register(McpServer("s", "stdio", "e")), 7),

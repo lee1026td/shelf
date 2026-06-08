@@ -137,7 +137,11 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [ ] APScheduler daemon, snapshot hash, text+semantic diff, review queue, weekly digest
 
 ## Phase 5 — TUI UX
-- [ ] Textual app: command palette, `/review`, `/watch`, `/compile` wizards, diff viewer, approval UI
+- [x] Textual app (first slice, `shelf.tui`): scrollable transcript + bottom-docked
+      bordered input + `/` command dropdown + tool-call cards; fronts `ReplSession`
+      on a TTY (bare `shelf`/`shelf chat`/`shelf tui`), line REPL fallback when piped.
+- [ ] `/review` approval screen, `/watch` dashboard, diff viewer, full command palette,
+      wizards — later Phase-5 increments.
 
 ## Phase 6 — Notion sync
 - [ ] schema creation, curated sync, review-queue status import, conflict handling, rate-limit retry

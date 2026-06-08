@@ -32,7 +32,8 @@ a **thin REPL shell** (`shelf.repl`) entered by bare `shelf`/`shelf chat`
 (`/status`/`/help`/`/exit` work; other slash commands + free-text chat announce
 their phase), Rich UI (`shelf.ui`), workspace init + layout, SQLite store (full
 schema), config load/save, `shelf.services.gather_status` (shared by CLI + REPL),
-tests. The full Textual command-palette TUI remains Phase 5 (`shelf.tui`).
+tests. On a real terminal, bare `shelf`/`shelf chat`/`shelf tui` open the **Textual TUI**
+(Phase 5, first slice — see below); piped/non-TTY falls back to this line REPL.
 
 **Phase 1 ingestion** (`shelf.ingestion`): `/clip`, `/import`, + browse/triage
 (`/inbox` `/search` `/sources` `/save` `/mute`). **Phase 2 LLM gateway**
@@ -55,16 +56,23 @@ collection itself is Phase 4). Web search (`web_search` tool) POSTs to DuckDuckG
 is gated by `privacy.remote_search`. Still open in Phase 3: full 9-axis source scoring
 and RAG retrieval for `/ask` (needs a vector index — deliberately deferred).
 
+**Phase 5 TUI, first slice** (`shelf.tui`, depends on `textual`): `ShelfApp` fronts the
+same `ReplSession` on a TTY — a scrollable transcript, a bottom-docked input bordered by
+horizontal rules with a `>` prompt, a `/` command dropdown, and agent **tool calls as
+cards** with a live trace. Reuses every Rich renderer (a Console writes into the log) and
+the agent's `event_sink`; blocking commands run in a thread worker. Review/watch/diff
+screens + full palette are later Phase-5 increments.
+
 Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
-`shelf.watcher`, `shelf.tui`, `shelf.notion`, `shelf.mcp`. Do **not** quietly implement
-stubs as side effects of unrelated work — they are phased (see `IMPLEMENTATION_PLAN.md`
-§3). Update `TASKS.md` and the status memory when a phase lands.
+`shelf.watcher`, `shelf.notion`, `shelf.mcp`. Do **not** quietly implement stubs as side
+effects of unrelated work — they are phased (see `IMPLEMENTATION_PLAN.md` §3). Update
+`TASKS.md` and the status memory when a phase lands.
 
 ## Layout
 ```
 src/shelf/        cli/ ui/ config/ workspace/ store/ library/   (implemented)
-                  ingestion/ llm/ tools/ skills/ agent/ discovery/   (implemented)
-                  watcher/ tui/ notion/ mcp/   (stubs)
+                  ingestion/ llm/ tools/ skills/ agent/ discovery/ tui/   (implemented)
+                  watcher/ notion/ mcp/   (stubs)
 tests/            pytest suite mirroring the modules
 ```
 `ui/` = Rich components used by the CLI now. `tui/` = the full Textual app (Phase 5).

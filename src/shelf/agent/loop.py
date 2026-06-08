@@ -84,12 +84,18 @@ class AgentLoop:
             parsed = parse_action(reply)
             if isinstance(parsed, ParseError):
                 parse_failures += 1
+                if parse_failures > _MAX_PARSE_FAILURES:
+                    # The model kept answering in prose instead of a final-action JSON
+                    # (common for small local models). Accept its text as the final
+                    # answer rather than discarding the run as an error.
+                    answer = reply.strip()
+                    emit("note", "no tool action parsed; taking the reply as the final answer")
+                    reason = "final" if answer else "error"
+                    return AgentResult(answer or "(no answer)", steps, reason)
                 emit(
                     "retry",
                     f"unparseable reply {parse_failures}/{_MAX_PARSE_FAILURES}; re-prompting",
                 )
-                if parse_failures > _MAX_PARSE_FAILURES:
-                    return AgentResult(reply.strip() or "(no answer)", steps, "error")
                 notes.append(
                     "Your last reply was not a valid action. Reply with exactly one "
                     '```json {"tool": "...", "args": {...}} ``` block.'

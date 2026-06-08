@@ -121,7 +121,7 @@ A reviewer can verify the milestone is complete by checking each item:
 | **2** | LLM gateway | OpenAI-compatible config, local model test, summary card, capability probe | **Implemented** (gateway/probe, `/model` `/summarize` `/ask`) |
 | **3** | Topic discovery | natural prompt → web search → candidates → scoring → initial brief | **Implemented** (tools/skills/agent harness + `/explore`; scoring axes, `/track`, `/compile` still partial) |
 | **4** | Watcher | RSS/sitemap watcher, snapshots, diff, review queue, weekly digest | Stub (`shelf.watcher`) |
-| **5** | TUI UX | Rich/Textual `/review` `/watch` `/compile`, command palette, approval UI | Stub (`shelf.tui`) |
+| **5** | TUI UX | Rich/Textual `/review` `/watch` `/compile`, command palette, approval UI | **Partial** — Textual chat surface (scroll log + docked input + slash dropdown + tool-call cards); review/watch/diff screens pending |
 | **6** | Notion sync | schema creation, curated sync, review-queue status import | Stub (`shelf.notion`) |
 | **7** | MCP | stdio/remote read-only registry, permission prompts | Stub (`shelf.mcp`) |
 

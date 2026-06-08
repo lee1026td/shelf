@@ -129,6 +129,7 @@ class ReplSession:
         gateway: ModelGateway | None = None,
         client: ChatClient | None = None,
         asker: Callable[[str], str] | None = None,
+        event_sink: Callable[[str, str], None] | None = None,
     ) -> None:
         self.workspace = workspace
         self.console = console or default_console
@@ -138,6 +139,9 @@ class ReplSession:
         # ``asker`` reads one interactive line for a prompt; None => non-interactive
         # (piped/tests), which disables the `/model` picker in favor of the table view.
         self._asker = asker
+        # ``event_sink`` receives agent-loop trace events; the TUI sets this to render
+        # tool-call cards. None => events print to the console (the line REPL).
+        self._event_sink = event_sink
         self.running = True
 
     def _get_gateway(self) -> ModelGateway:
@@ -247,7 +251,13 @@ class ReplSession:
         self.console.print(f"Item {item_id}: {summary}", style="green", highlight=False, markup=False)
 
     def _event_printer(self) -> Callable[[str, str], None]:
-        """A live-trace callback for the agent loop, styled by event kind."""
+        """A live-trace callback for the agent loop, styled by event kind.
+
+        Returns the injected ``event_sink`` (the TUI's card renderer) when present,
+        else a console printer for the line REPL.
+        """
+        if self._event_sink is not None:
+            return self._event_sink
         styles = {"retry": "yellow", "error": "red", "final": "green", "note": "dim"}
 
         def _on_event(kind: str, message: str) -> None:
