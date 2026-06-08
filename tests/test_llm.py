@@ -14,6 +14,9 @@ from tests.fixtures import FakeChatClient
 
 def _cfg(remote_llm: bool = False):
     cfg = default_config("/tmp/lib", "lib")
+    # default_config ships empty model ids now; pick concrete ones for routing tests.
+    cfg.models["planner"].model = "qwen3:8b"
+    cfg.models["embeddings"].model = "nomic-embed-text"
     cfg.privacy.remote_llm = remote_llm
     return cfg
 
@@ -23,7 +26,7 @@ def test_complete_routes_to_planner_profile():
     gateway = ModelGateway(_cfg(), client=client)
     assert gateway.complete("hi") == "hello"
     base_url, model, _messages = client.calls[0]
-    assert model == "qwen3:32b"  # the planner profile
+    assert model == "qwen3:8b"  # the planner profile
     assert base_url == "http://localhost:11434/v1"
 
 
@@ -43,7 +46,7 @@ def test_embed_uses_embeddings_profile():
 def test_probe_reachable():
     result = ModelGateway(_cfg(), client=FakeChatClient()).probe()
     assert result.reachable is True
-    assert result.model == "qwen3:32b"
+    assert result.model == "qwen3:8b"
 
 
 def test_probe_reports_error_without_raising():
@@ -135,7 +138,9 @@ def test_summarize_item_reads_body_and_persists(workspace, tmp_path):
     item_id = outcome.imported[0].item_id
 
     client = FakeChatClient(reply="a tidy summary")
-    gateway = ModelGateway(load_config(workspace.config_path), client=client)
+    cfg = load_config(workspace.config_path)
+    cfg.models["planner"].model = "qwen3:8b"  # default ships unset; chat needs one
+    gateway = ModelGateway(cfg, client=client)
     with Store.open(workspace.db_path) as store:
         summary = summarize_item(workspace, store, gateway, item_id)
 
@@ -157,12 +162,29 @@ def test_ask_library_includes_item_context(workspace):
     with Store.open(workspace.db_path) as store:
         store.add_item(title="Local agents", summary="all about agents", status="new")
     client = FakeChatClient(reply="based on your items...")
-    gateway = ModelGateway(load_config(workspace.config_path), client=client)
+    cfg = load_config(workspace.config_path)
+    cfg.models["planner"].model = "qwen3:8b"  # default ships unset; chat needs one
+    gateway = ModelGateway(cfg, client=client)
     with Store.open(workspace.db_path) as store:
         answer = ask_library(workspace, store, gateway, "what do I have?")
     assert answer == "based on your items..."
     _base, _model, messages = client.calls[0]
     assert "Local agents" in messages[-1]["content"]  # library context grounded the prompt
+
+
+def test_ask_library_empty_is_plain_chat(workspace):
+    # Empty library + a greeting must NOT become a RAG refusal prompt.
+    client = FakeChatClient(reply="Hi! How can I help?")
+    cfg = load_config(workspace.config_path)
+    cfg.models["planner"].model = "qwen3:8b"
+    gateway = ModelGateway(cfg, client=client)
+    with Store.open(workspace.db_path) as store:
+        answer = ask_library(workspace, store, gateway, "Hello")
+    assert answer == "Hi! How can I help?"
+    system, user = client.calls[0][2]
+    assert "ONLY from the provided library items" not in system["content"]  # not strict RAG
+    assert "library is empty" not in user["content"].lower()  # no empty-RAG framing
+    assert "Hello" in user["content"]
 
 
 # --- model selection -------------------------------------------------------

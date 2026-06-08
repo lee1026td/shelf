@@ -42,13 +42,17 @@ def render_sources(console: Console, sources: list[dict[str, Any]]) -> None:
     table.add_column("Status")
     table.add_column("Slug")
     table.add_column("Role")
+    table.add_column("Rel", justify="right")
     table.add_column("URL")
     # Group by status for readability.
     for source in sorted(sources, key=lambda s: (s.get("status") or "", s.get("slug") or "")):
+        relevance = source.get("relevance")
+        rel = f"{relevance:.2f}" if isinstance(relevance, int | float) else ""
         table.add_row(
             source.get("status") or "",
             source.get("slug") or "",
             source.get("role") or "",
+            rel,
             _truncate(source.get("url") or "", 48),
         )
     console.print(table, highlight=False)

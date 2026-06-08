@@ -114,8 +114,20 @@ src/shelf/
     fetch.py                 #   HttpFetcher (http/https/file, scheme allow-list)
     writers.py               #   Item markdown, snapshot, ledger writers
     clip.py / importer.py    #   the /clip and /import services
-  discovery/                 # ── STUB (Phase 3: topic discovery / deep research) ──
-    agent.py                 #   DiscoveryAgent interface
+  tools/                     # ── IMPLEMENTED (Phase 3) ── uniform Tool interface + registry
+    base.py                  #   Tool, ToolContext, ToolHandler
+    registry.py              #   ToolRegistry + composable toolsets (resolve/catalog/dispatch)
+    schema.py                #   arg coercion (str->num/bool, scalar->list) + required-check
+    builtins/                #   library_search, fetch_url, web_search (gated), propose_source
+  skills/                    # ── IMPLEMENTED (Phase 3) ── on-demand SKILL.md guidance
+    loader.py                #   parse frontmatter + lazy body load (progressive disclosure)
+    builtin/explore/SKILL.md #   the explore task guidance
+  agent/                     # ── IMPLEMENTED (Phase 3) ── the Agent Orchestrator
+    loop.py                  #   AgentLoop: small-model-robust ReAct loop over the registry
+    protocol.py              #   tolerant text tool-call parse + JSON repair
+    prompt.py                #   system/user prompt builders (action format + few-shot)
+  discovery/                 # ── IMPLEMENTED (Phase 3) ── topic discovery / `/explore` ──
+    agent.py                 #   DiscoveryAgent / explore_topic (drives the agent harness)
   watcher/                   # ── STUB (Phase 4: daemon) ──
     daemon.py                #   WatcherDaemon interface
   llm/                       # ── STUB (Phase 2) ──
@@ -141,20 +153,29 @@ real; the rest announce their phase. It is deliberately *not* the full Textual T
 (`tui/`, Phase 5) — it gives the "type `shelf`, get a research prompt" UX today
 without the palette/wizard machinery.
 
-### Tool layer — deferred to Phase 3 (decision)
+### Tool / skill / agent layer (Phase 3)
 
-The plan (§10.3) reserves a `tools/` package (`fs.py`, `web_fetch.py`, `diff.py`,
-`export.py`) for the agent's **built-in tools**. We are **not** creating it yet.
-Until the Agent Orchestrator exists, commands call functions directly (e.g. `/clip`
-→ `clip_url()`), so there is nothing that *selects among* tools — a unified `tools/`
-registry now would be premature abstraction. The capabilities that exist live where
-they were first needed: web fetch → `ingestion/fetch.py` (`HttpFetcher`), parsing →
-`ingestion/parsers.py`, fs writes → `ingestion/writers.py` / `workspace/`.
+`tools/` is now the uniform `Tool` interface + registry the plan (§10.3) reserved.
+Patterned on **Hermes-Agent**'s harness (self-registering tools, composable toolsets,
+progressive disclosure, and small/local-model robustness) but trimmed to shelf's
+dependency-light footprint (urllib + existing deps; no probability distributions,
+async runner, or MCP bridge yet). Three layers cooperate:
 
-**Phase 3** introduces `tools/` as a uniform `Tool` interface + registry, unifying
-three kinds of tool: (1) built-in local tools (web_fetch/fs/diff/export), (2) LLM
-function-calling tools exposed to the model, and (3) MCP tools (`mcp/`, Phase 7).
-diff/export/OCR/transaction-rollback are built then or in their owning phase.
+- **`tools/`** — a `Tool` is `(name, description, toolset, parameters, handler,
+  check_fn)`. The `ToolRegistry` resolves named toolsets (`includes` composition),
+  filters by availability, and dispatches with arg coercion. Built-ins:
+  `library_search` (offline), `fetch_url`, `web_search` (gated by
+  `privacy.remote_search`, pluggable provider), `propose_source` (propose-don't-mutate).
+- **`skills/`** — task guidance as `SKILL.md` (frontmatter + body); only the selected
+  skill's body enters the prompt. `explore` is the first.
+- **`agent/`** — the Agent Orchestrator (§2). A **text** tool-call protocol (the model
+  emits a fenced `json {"tool": ..., "args": {...}}` block — *not* native
+  function-calling, so weak local models work), tolerant parse + JSON repair, bounded
+  retries, observation truncation, and a step budget.
+
+`/explore` (`discovery/`) is the first consumer: it runs the agent over the `discovery`
+toolset + `explore` skill. `/track`, `/compile`, and MCP tools (Phase 7) reuse the same
+registry/loop later; diff/export/OCR/rollback are built in their owning phases.
 
 ## 4. Module responsibilities (target)
 

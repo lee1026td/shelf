@@ -38,7 +38,7 @@ def test_init_then_status(runner, tmp_path):
     assert status_result.exit_code == 0, status_result.output
     out = status_result.output
     assert "[Shelf: " in out
-    assert "[model: qwen3:32b]" in out
+    assert "[model: none]" in out  # fresh init ships no fabricated placeholder model
     assert "[remote: off]" in out
     assert "[sources: 0]" in out
     assert "[review: 0]" in out

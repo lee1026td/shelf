@@ -1,7 +1,21 @@
-"""Topic discovery / deep research. STUB — interface only (Phase 3)."""
+"""Topic discovery / deep research (Phase 3)."""
 
 from __future__ import annotations
 
-from shelf.discovery.agent import DiscoveryAgent, SourceCandidate
+from shelf.discovery.agent import (
+    CompileOutcome,
+    DiscoveryAgent,
+    ExploreOutcome,
+    SourceCandidate,
+    compile_topic,
+    explore_topic,
+)
 
-__all__ = ["DiscoveryAgent", "SourceCandidate"]
+__all__ = [
+    "CompileOutcome",
+    "DiscoveryAgent",
+    "ExploreOutcome",
+    "SourceCandidate",
+    "compile_topic",
+    "explore_topic",
+]

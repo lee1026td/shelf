@@ -15,8 +15,13 @@ from shelf.workspace import Workspace
 
 SUMMARY_SYSTEM = "You are a precise research assistant. Summarize faithfully; never invent."
 ASK_SYSTEM = (
-    "You are a research librarian. Answer ONLY from the provided library items. "
-    "If they do not contain the answer, say so plainly. Reference the item titles you used."
+    "You are shelf, a friendly local research-library assistant. Respond naturally to "
+    "greetings, small talk, and general questions. Some of the user's saved library "
+    "items may be shown to you as context - use them only when they are relevant to what "
+    "the user asked, and when you do, cite the item titles you drew from. If the user "
+    "asks a research question the items do not cover (or none are shown), answer from "
+    "general knowledge and make clear it is not from their library. Never refuse a casual "
+    "message on the grounds that the library does not contain it."
 )
 
 
@@ -64,14 +69,23 @@ def ask_library(
     *,
     k: int = 6,
 ) -> str:
-    """Answer a question grounded in the most recent library items."""
+    """Chat with the model, surfacing recent library items as optional context.
+
+    Conversational messages (a greeting, small talk) are answered naturally; only
+    when the library holds items relevant to the question does the model ground and
+    cite them. An empty library means a plain chat prompt - no RAG framing - so a
+    "Hello" never gets a "the library does not contain that" refusal.
+    """
     items = store.list_items(limit=k)
     if items:
         context = "\n".join(
             f"- {it.get('title') or '(untitled)'}: {(it.get('summary') or '').strip()}"
             for it in items
         )
+        prompt = (
+            "Library items that may be relevant (ignore any that don't pertain to the "
+            f"message):\n{context}\n\nUser: {question}"
+        )
     else:
-        context = "(the library is empty)"
-    prompt = f"Library items:\n{context}\n\nQuestion: {question}"
+        prompt = f"User: {question}"
     return gateway.complete(prompt, role="planner", system=ASK_SYSTEM).strip()

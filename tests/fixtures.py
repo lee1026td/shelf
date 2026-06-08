@@ -72,3 +72,31 @@ class FakeChatClient:
 
     def list_models(self, base_url, *, api_key=None):
         return ["qwen3:32b", "qwen3:8b", "nomic-embed-text", "bge-m3"]
+
+
+class ScriptedChatClient:
+    """A :class:`ChatClient` that returns queued replies in order.
+
+    Drives the agent loop in tests: enqueue the exact model turns (action blocks then a
+    final). After the queue drains it repeats the last reply (so an over-long loop still
+    terminates rather than indexing past the end).
+    """
+
+    def __init__(self, replies) -> None:
+        self.replies = list(replies)
+        self.calls: list = []
+        self._i = 0
+
+    def chat(self, base_url, model, messages, *, api_key=None, max_tokens=512, temperature=0.2):
+        self.calls.append((base_url, model, messages))
+        if self._i < len(self.replies):
+            reply = self.replies[self._i]
+            self._i += 1
+            return reply
+        return self.replies[-1] if self.replies else ""
+
+    def embeddings(self, base_url, model, texts, *, api_key=None):
+        return [[0.0] for _ in texts]
+
+    def list_models(self, base_url, *, api_key=None):
+        return []

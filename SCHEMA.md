@@ -268,12 +268,12 @@ models:                          # OpenAI-compatible role profiles (plan §11.1)
   planner:
     provider: openai_compatible
     base_url: http://localhost:11434/v1
-    model: qwen3:32b
+    model: ""                    # empty by default — pick a real one via `/model`
     capabilities: {tools: false, json_schema: partial, vision: false, embeddings: false}
   embeddings:
     provider: openai_compatible
     base_url: http://localhost:11434/v1
-    model: nomic-embed-text
+    model: ""                    # empty by default — pick a real one via `/model`
     capabilities: {tools: false, json_schema: false, vision: false, embeddings: true}
 notion:
   enabled: false

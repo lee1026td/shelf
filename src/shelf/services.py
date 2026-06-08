@@ -11,6 +11,7 @@ from shelf.config import ModelProfile, load_config, save_config
 from shelf.errors import WorkspaceError
 from shelf.store import Store
 from shelf.ui.status_view import StatusReport
+from shelf.util import slugify
 from shelf.workspace import Workspace
 
 
@@ -64,3 +65,40 @@ def set_model(
     config.models[role] = profile
     save_config(config, workspace.config_path)
     return profile
+
+
+def enable_remote_llm(workspace: Workspace) -> None:
+    """Turn on the remote-LLM egress gate (``privacy.remote_llm``) and persist it.
+
+    The model picker calls this only after the user explicitly confirms sending
+    library content off-machine (product principle 5: egress is visible).
+    """
+    config = load_config(workspace.config_path)
+    config.privacy.remote_llm = True
+    save_config(config, workspace.config_path)
+
+
+def enable_remote_search(workspace: Workspace) -> None:
+    """Turn on the remote web-search egress gate (``privacy.remote_search``) and persist it.
+
+    Called by ``/explore`` only after the user explicitly confirms sending their query
+    to a web search engine (product principle 5: egress is visible).
+    """
+    config = load_config(workspace.config_path)
+    config.privacy.remote_search = True
+    save_config(config, workspace.config_path)
+
+
+def track_topic(workspace: Workspace, topic: str, *, frequency: str = "weekly") -> str:
+    """Promote a topic to *tracked* with a refresh frequency. Returns the topic slug.
+
+    This is the Phase-3 half of ``/track``: it records intent (status + discovery
+    policy). It does NOT auto-watch sources — the watchlist still grows only through
+    the review queue (principle 3), and actual periodic collection is the Phase-4
+    watcher's job. Idempotent: re-tracking just updates the frequency.
+    """
+    slug = slugify(topic, fallback="topic")
+    with Store.open(workspace.db_path) as store:
+        store.ensure_topic(topic, slug, intent=topic)
+        store.set_topic_tracking(slug, status="tracked", discovery_policy={"frequency": frequency})
+    return slug

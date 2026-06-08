@@ -10,11 +10,14 @@ import typer
 from shelf import __version__
 from shelf.cli.commands.chat import chat_command
 from shelf.cli.commands.clip import clip_command
+from shelf.cli.commands.compile_cmd import compile_command
+from shelf.cli.commands.explore import explore_command
 from shelf.cli.commands.import_cmd import import_command
 from shelf.cli.commands.init import init_command
 from shelf.cli.commands.library import inbox_command, search_command, sources_command
 from shelf.cli.commands.model import ask_command, model_app, summarize_command
 from shelf.cli.commands.status import status_command
+from shelf.cli.commands.track import track_command
 from shelf.cli.errors import cli_errors
 from shelf.repl import run_repl
 from shelf.ui.console import ensure_safe_streams, info
@@ -82,6 +85,15 @@ app.command("sources", help="List the source universe (the /sources command).")(
 app.add_typer(model_app, name="model")
 app.command("summarize", help="LLM-summarize an item (the /summarize command).")(summarize_command)
 app.command("ask", help="Answer a question from the library (the /ask command).")(ask_command)
+app.command("explore", help="Discover + propose sources for a topic (the /explore command).")(
+    explore_command
+)
+app.command("track", help="Mark a topic as tracked with a refresh frequency (the /track command).")(
+    track_command
+)
+app.command("compile", help="Compile a cited brief from the library (the /compile command).")(
+    compile_command
+)
 
 
 @app.command("version", help="Print the installed shelf version.")

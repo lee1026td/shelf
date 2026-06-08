@@ -16,10 +16,14 @@ def test_default_config_is_local_only(tmp_path):
     assert cfg.privacy.remote_mcp is False
     assert cfg.remote_enabled is False
     assert set(cfg.models) == {"planner", "embeddings"}
-    assert cfg.planner_model == "qwen3:32b"
+    # No fabricated placeholder model: ids are empty until the user picks one.
+    assert cfg.models["planner"].model == ""
+    assert cfg.models["embeddings"].model == ""
+    assert cfg.planner_model == "none"
     # The "OpenAI-compatible" part of acceptance criterion C.
     assert cfg.models["planner"].provider == "openai_compatible"
     assert cfg.models["embeddings"].provider == "openai_compatible"
+    # base_url is kept so `/model list` can enumerate the endpoint with no setup.
     assert cfg.models["planner"].base_url
     assert cfg.models["embeddings"].capabilities.embeddings is True
     assert cfg.models["planner"].capabilities.json_schema == "partial"

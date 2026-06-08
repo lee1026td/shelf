@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from shelf.discovery import DiscoveryAgent
 from shelf.errors import FeatureNotReady, ShelfError
 from shelf.mcp import McpRegistry, McpServer
 from shelf.notion import NotionAdapter
@@ -18,8 +17,7 @@ def test_feature_not_ready_is_shelf_and_notimplemented():
 
 
 STUBS = [
-    (lambda: DiscoveryAgent().explore("topic"), 3),
-    (lambda: DiscoveryAgent().initial_brief("topic"), 3),
+    # Phase 3 (discovery / `/explore`) is now implemented — see test_discovery.py.
     (lambda: WatcherDaemon().run_once(), 4),
     (lambda: WatcherDaemon().start(), 4),
     (lambda: launch_tui(), 5),

@@ -38,18 +38,33 @@ tests. The full Textual command-palette TUI remains Phase 5 (`shelf.tui`).
 (`/inbox` `/search` `/sources` `/save` `/mute`). **Phase 2 LLM gateway**
 (`shelf.llm`): `ModelGateway` over an OpenAI-compatible endpoint (urllib, injectable
 client), capability `probe`, egress gate (localhost ok; remote needs
-`privacy.remote_llm`); `/model`, `/summarize <id>`, `/ask <q>` + free-text chat.
+`privacy.remote_llm`); `/model` (provider→model picker), `/summarize <id>`,
+`/ask <q>` + library-aware free-text chat.
+
+**Phase 3 discovery harness** (`shelf.tools` + `shelf.skills` + `shelf.agent` +
+`shelf.discovery`): a Hermes-inspired, dependency-light tool/skill harness. `tools/`
+is a `Tool` registry + composable toolsets (builtins: `library_search`, `fetch_url`,
+`web_search` gated by `privacy.remote_search`, `propose_source`). `skills/` is
+SKILL.md guidance loaded on demand. `agent/` is the ReAct loop using a **text**
+tool-call protocol (fenced JSON, not native function-calling) with tolerant JSON
+repair + bounded retries, so small local models work. Commands on it: `/explore`
+(discover → propose candidates to the review queue, never auto-watch → cited brief;
+live step trace; `--steps` budget), `/compile` (cited brief/landscape from the library
+via the `compile` skill → `Compilations/`), `/track` (mark a topic tracked + frequency;
+collection itself is Phase 4). Web search (`web_search` tool) POSTs to DuckDuckGo and
+is gated by `privacy.remote_search`. Still open in Phase 3: full 9-axis source scoring
+and RAG retrieval for `/ask` (needs a vector index — deliberately deferred).
 
 Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
-`shelf.discovery`, `shelf.watcher`, `shelf.tui`, `shelf.notion`, `shelf.mcp`. Do
-**not** quietly implement these as side effects of unrelated work — they are phased
-(see `IMPLEMENTATION_PLAN.md` §3). Update `TASKS.md` and the status memory when a
-phase lands.
+`shelf.watcher`, `shelf.tui`, `shelf.notion`, `shelf.mcp`. Do **not** quietly implement
+stubs as side effects of unrelated work — they are phased (see `IMPLEMENTATION_PLAN.md`
+§3). Update `TASKS.md` and the status memory when a phase lands.
 
 ## Layout
 ```
 src/shelf/        cli/ ui/ config/ workspace/ store/ library/   (implemented)
-                  ingestion/ llm/ discovery/ watcher/ tui/ notion/ mcp/  (stubs)
+                  ingestion/ llm/ tools/ skills/ agent/ discovery/   (implemented)
+                  watcher/ tui/ notion/ mcp/   (stubs)
 tests/            pytest suite mirroring the modules
 ```
 `ui/` = Rich components used by the CLI now. `tui/` = the full Textual app (Phase 5).

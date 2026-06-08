@@ -98,19 +98,40 @@ Phase mapping per `IMPLEMENTATION_PLAN.md` §3.
 - [x] `/model` (show profiles + probe) — REPL + `shelf model` (`--no-probe`)
 - [x] Model **selection** (chat + embeddings): `/model list [role]`, `/model set <role>
       <model> [base_url]`, `/model use <model>` — persisted to config (REPL + CLI)
+- [x] Interactive `/model` **picker** (provider → model): Ollama / Custom
+      OpenAI-compatible / OpenAI; remote prompts to enable egress; `/model show` =
+      table. (Anthropic deferred — needs a native `/v1/messages` adapter.)
+- [x] No fabricated default model: `default_config` ships empty `model` (status shows
+      `none`) instead of a `qwen3:32b` placeholder
 - [x] Works with local **and** remote OpenAI-compatible endpoints (remote opt-in)
 - [x] `/summarize <id>` — LLM summary of an Item, persisted — REPL + `shelf summarize`
 - [x] `/ask <q>` + free-text chat — library-grounded answer — REPL + `shelf ask`
 - [ ] Summary-on-clip/import (opt-in), streaming, keyring-backed API keys (later)
 
 ## Phase 3 — Topic discovery
-- [ ] query expansion, web search, candidate extraction, source scoring, initial brief
-- [ ] **`tools/` layer** (decision): uniform `Tool` interface + registry unifying
-      built-in tools (web_fetch/fs/diff/export), LLM function-calling, and MCP tools;
-      move `ingestion/fetch.py` web-fetch behind it. (Until now, no `tools/` folder —
-      capabilities live domain-organized.)
-- [ ] (RAG, deferred earlier) embedding/keyword retrieval over `.shelf/normalized/*`
-      bodies for `/ask` (currently only title+summary of recent items is used)
+- [x] **`tools/` layer**: uniform `Tool` interface + registry + composable toolsets
+      (Hermes-style, dependency-light). Built-ins: `library_search`, `fetch_url`,
+      `web_search` (gated), `propose_source`. (`fs`/`diff`/`export`/MCP tools land in
+      their owning phases.)
+- [x] **`skills/` layer**: SKILL.md (frontmatter + body), lazy load, progressive
+      disclosure; `explore` skill shipped.
+- [x] **`agent/` harness** (Agent Orchestrator): text tool-call protocol + tolerant
+      JSON repair + ReAct loop with bounded retries / step budget — works on small
+      local models (no native function-calling required).
+- [x] **`/explore`** end-to-end (REPL + `shelf explore`): search → read → propose
+      candidates (`status='candidate'` + pending review item, never auto-watched) →
+      cited brief. Topic row created; egress gated + announced. Live step trace +
+      stop reason; **configurable step budget** (`--steps`, default 12).
+- [x] **`/track`** (REPL + `shelf track`): mark a topic tracked + refresh frequency
+      (records intent; collection is the Phase-4 watcher).
+- [x] **`/compile`** (REPL + `shelf compile`): agent-driven cited brief/landscape/FAQ/
+      timeline from the library, saved under `Compilations/` (`compile` skill+toolset).
+- [x] lightweight scoring (`propose_source` accepts `relevance`/`authority` → score
+      columns, shown in `/sources`) + query-variation guidance in the explore skill.
+- [ ] full 9-axis source **scoring** as a dedicated pass (columns exist; only
+      relevance/authority are set today).
+- [ ] (RAG, deferred) embedding/keyword retrieval over `.shelf/normalized/*` bodies for
+      `/ask` — needs a vector index (new dependency); intentionally out of scope so far.
 
 ## Phase 4 — Watcher
 - [ ] APScheduler daemon, snapshot hash, text+semantic diff, review queue, weekly digest

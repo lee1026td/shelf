@@ -21,8 +21,11 @@ default path is a guided flow.
 | `shelf inbox` | `/inbox` | ✅ | List newly collected items (status='new'). `--limit`. |
 | `shelf search Q` | `/search` | ✅ | Keyword search over items (title/summary/url). |
 | `shelf sources` | `/sources` | ✅ | List the source universe by status. |
-| `shelf model [list\|set\|use]` | `/model` | ✅ | Show/probe; `list [role]`, `set <role> <model> [--base-url]`, `use <model>`. Selects chat **and** embedding models. Works with any OpenAI-compatible endpoint (remote needs `privacy.remote_llm: true` + `$SHELF_API_KEY`). |
+| `shelf model [list\|set\|use]` | `/model` | ✅ | On a TTY, bare `/model` opens an interactive **picker** (role → provider → model): pick **planner** (chat) or **embeddings**, then a provider — Ollama / Custom OpenAI-compatible endpoint / OpenAI (Anthropic is parked — it needs a native adapter) — then the model. `/model planner` and `/model embeddings` jump straight to that role. A failed connection re-prompts the endpoint URL instead of faking success. `/model show` always prints the profile table + probe; `list [role]`, `set <role> <model> [--base-url]`, `use <model>` are the scripting layer. Remote endpoints prompt to enable `privacy.remote_llm` and read the key from `$SHELF_API_KEY` (never written to config). |
 | `shelf ask Q` | `/ask` | ✅ | Answer a question grounded in the library (also: type free text in the REPL). |
+| `shelf explore TOPIC` | `/explore` | ✅ | Agent-driven source discovery: searches (library + web), reads pages, **proposes** candidate sources to the review queue (never auto-watched), and writes a cited brief. Runs the `shelf.agent` harness over the `discovery` toolset; works with small local models. Web search is gated by `privacy.remote_search` (egress, off by default): in the REPL `/explore` offers to enable it (y/N, persisted); the CLI uses `--web`. Step budget is configurable: `--steps N` (CLI) / `/explore <topic> --steps N` (REPL), default 12. A live trace of each step + a stop reason are printed. |
+| `shelf track TOPIC` | `/track` | ✅ | Mark a topic as **tracked** with a refresh frequency (`--frequency weekly\|daily\|monthly`). Records intent only — sources stay in review until approved; periodic collection is the Phase-4 watcher. |
+| `shelf compile TOPIC` | `/compile` | ✅ | Compile a **cited** document from the library (`--kind brief\|landscape\|faq\|timeline`, `--steps N`). Runs the harness over the `compile` toolset (read-only) and saves the Markdown under `Compilations/`. |
 | `shelf summarize ID` | `/summarize` | ✅ | LLM-summarize an item and store the summary. |
 | `shelf chat` | — | ✅ | Enter the research REPL (same as bare `shelf`). |
 | `shelf version` | — | ✅ | Print the installed shelf version. |
@@ -32,12 +35,12 @@ default path is a guided flow.
 ```
 $ shelf
 shelf REPL - ResearchLibrary
-[Shelf: ~/ResearchLibrary] [model: qwen3:32b] [remote: off] [sources: 0] [inbox: 0] [review: 0]
+[Shelf: ~/ResearchLibrary] [model: none] [remote: off] [sources: 0] [inbox: 0] [review: 0]
 Type /help for commands, /exit to quit.
 shelf> /status        # runs for real
 shelf> /help          # lists every command + the phase that delivers it
-shelf> /explore ...    # Note: not implemented yet - planned for Phase 3
-shelf> a free topic    # Note: chat routing - planned for Phase 2 (LLM) + 3 (discovery)
+shelf> /explore local-first software   # agent discovers + proposes sources, writes a brief
+shelf> a free topic    # library-aware chat via the model gateway
 shelf> /exit
 ```
 
@@ -45,10 +48,10 @@ shelf> /exit
   `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`,
   `/ask <q>`, `/summarize <id>`, `/model`,
   `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
-- **Free text** (no leading `/`) is answered from the library via the model
-  gateway (`/ask`). Discovery/web research routing arrives in Phase 3.
+- **Free text** (no leading `/`) is a chat with the model (same path as `/ask`):
+  it converses normally and grounds in your library items only when they're
+  relevant, citing the titles it used. Discovery/web routing arrives in Phase 3.
 - Every other slash command is recognized and announces its phase (see §2).
-- Free text (no leading `/`) is answered from the library via the model gateway.
 - Input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
 
 ### `shelf init`
@@ -78,8 +81,8 @@ shown is the advanced layer. Modules backing them are stubbed or not-yet-created
 | Slash | Status | Function | Guided flow |
 |---|---|---|---|
 | `/` | 🗓️ | Command palette | list + fuzzy search + recent + suggested next action |
-| `/explore` | 🧩 (`discovery`) | One-time research + source discovery from a topic | scope → search depth → source map → watch candidates |
-| `/track` | 🧩 (`discovery`/`watcher`) | Promote a topic to a tracked topic | review sources → frequency → refresh policy → approve |
+| `/explore` | ✅ (`discovery`/`agent`/`tools`) | One-time research + source discovery from a topic | search (library + gated web) → read pages → propose candidates → cited brief |
+| `/track` | ✅ (`services`) | Mark a topic as tracked + refresh frequency (collection = Phase 4 watcher) | topic → frequency → tracked |
 | `/watch` | 🧩 (`watcher`) | Manage a source or watched topic | health dashboard → add/run/pause/mute/fix |
 | `/sources` | ✅ | List the source universe by status | `shelf sources` / REPL `/sources` (full tabs UI: Phase 5) |
 | `/clip` | ✅ (`ingestion`) | Save a URL / clipboard article now | URL → parse → Item + ephemeral source (REPL: `/clip <url>`) |
@@ -91,7 +94,7 @@ shown is the advanced layer. Modules backing them are stubbed or not-yet-created
 | `/inbox` | ✅ | List newly collected items + triage | `/inbox`, `/save <id>`, `/mute <id>` (high-signal grouping: later) |
 | `/review` | 🧩 (`tui`) | Process candidates, stale claims, failed extractions, patches | pending → evidence → approve/reject/snooze/mute |
 | `/digest` | 🧩 (`watcher`) | Generate a period/collection/topic digest | period → scope → threshold → generate |
-| `/compile` | 🧩 (`discovery`) | Compile a brief/landscape/FAQ/timeline | type → scope → draft → diff → apply |
+| `/compile` | ✅ (`discovery`/`agent`) | Compile a cited brief/landscape/FAQ/timeline from the library | kind → read library/sources → cited draft → save to Compilations/ |
 | `/wiki` | 🗓️ | Update/browse/rollback local wiki or Notion page | tree → stale page → patch → approve |
 | `/diff` | 🧩 (`watcher`) | Review snapshot/wiki/compilation changes | before/after → semantic summary → evidence |
 | `/search` | ✅ | Keyword search across collected items | `shelf search <q>` / REPL `/search <q>` (semantic search: Phase 3) |

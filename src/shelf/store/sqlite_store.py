@@ -181,6 +181,114 @@ class Store:
             watch_runs=self._count("SELECT COUNT(*) FROM watch_runs"),
         )
 
+    # --- topics -------------------------------------------------------------
+    def add_topic(
+        self, name: str, slug: str, *, intent: str | None = None, status: str = "active"
+    ) -> int:
+        """Insert a topic and return its id."""
+        now = _utc_now_iso()
+        cur = self._conn.execute(
+            "INSERT INTO topics(slug, name, intent, status, created_at, updated_at) "
+            "VALUES(?, ?, ?, ?, ?, ?)",
+            (slug, name, intent, status, now, now),
+        )
+        return int(cur.lastrowid)
+
+    def get_topic(self, slug: str) -> dict[str, Any] | None:
+        row = self._conn.execute("SELECT * FROM topics WHERE slug = ?", (slug,)).fetchone()
+        return _row_to_dict(row)
+
+    def list_topics(self) -> list[dict[str, Any]]:
+        rows = self._conn.execute("SELECT * FROM topics ORDER BY id").fetchall()
+        return [d for d in (_row_to_dict(r) for r in rows) if d is not None]
+
+    def ensure_topic(self, name: str, slug: str, *, intent: str | None = None) -> int:
+        """Return an existing topic's id by slug, or create it. Idempotent."""
+        existing = self.get_topic(slug)
+        if existing is not None:
+            return int(existing["id"])
+        return self.add_topic(name, slug, intent=intent)
+
+    def set_topic_tracking(
+        self, slug: str, *, status: str, discovery_policy: dict[str, Any] | None = None
+    ) -> bool:
+        """Update a topic's status (e.g. 'tracked') and discovery policy. True if changed."""
+        cur = self._conn.execute(
+            "UPDATE topics SET status = ?, discovery_policy = ?, updated_at = ? WHERE slug = ?",
+            (
+                status,
+                json.dumps(discovery_policy) if discovery_policy is not None else None,
+                _utc_now_iso(),
+                slug,
+            ),
+        )
+        return cur.rowcount > 0
+
+    # --- compilations -------------------------------------------------------
+    def add_compilation(
+        self,
+        *,
+        title: str,
+        topic_id: int | None = None,
+        kind: str | None = None,
+        source_count: int = 0,
+        confidence: float | None = None,
+        output_path: str | None = None,
+    ) -> int:
+        """Record a compiled artifact (brief/landscape/...) and return its id."""
+        now = _utc_now_iso()
+        cur = self._conn.execute(
+            "INSERT INTO compilations(title, topic_id, kind, source_count, confidence, "
+            "output_path, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            (title, topic_id, kind, source_count, confidence, output_path, now, now),
+        )
+        return int(cur.lastrowid)
+
+    # --- review items -------------------------------------------------------
+    def add_review_item(
+        self,
+        *,
+        type: str,
+        title: str | None = None,
+        suggested_action: str | None = None,
+        ref_kind: str | None = None,
+        ref_id: int | None = None,
+        priority: str = "normal",
+        status: str = "pending",
+        evidence: dict[str, Any] | None = None,
+        local_ref: str | None = None,
+    ) -> int:
+        """Queue an item for the review queue (propose-don't-mutate). Returns its id."""
+        now = _utc_now_iso()
+        cur = self._conn.execute(
+            "INSERT INTO review_items(type, priority, status, title, suggested_action, "
+            "evidence, ref_kind, ref_id, local_ref, created_at, updated_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                type,
+                priority,
+                status,
+                title,
+                suggested_action,
+                json.dumps(evidence) if evidence is not None else None,
+                ref_kind,
+                ref_id,
+                local_ref,
+                now,
+                now,
+            ),
+        )
+        return int(cur.lastrowid)
+
+    def list_review_items(self, status: str | None = "pending") -> list[dict[str, Any]]:
+        if status is None:
+            rows = self._conn.execute("SELECT * FROM review_items ORDER BY id").fetchall()
+        else:
+            rows = self._conn.execute(
+                "SELECT * FROM review_items WHERE status = ? ORDER BY id", (status,)
+            ).fetchall()
+        return [d for d in (_row_to_dict(r) for r in rows) if d is not None]
+
     # --- sources ------------------------------------------------------------
     def add_source(
         self,

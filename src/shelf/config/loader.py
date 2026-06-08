@@ -34,7 +34,12 @@ def default_config(root: Path | str, name: str, created_at: str | None = None) -
 
     Defaults reflect the plan: Notion off, all remote egress off, and an
     OpenAI-compatible ``planner`` + ``embeddings`` profile pointed at a local
-    Ollama-style endpoint (the user re-points these via ``/model`` in Phase 2).
+    Ollama-style endpoint. The ``model`` ids are left **empty** on purpose: we
+    don't fabricate a placeholder (e.g. ``qwen3:32b``) that may not be installed,
+    which would make ``/status`` claim a model that doesn't actually work. The
+    user picks a real model — from whatever the endpoint offers — via ``/model``.
+    The ``base_url`` is kept so ``/model list`` can enumerate that endpoint with
+    no further setup.
     """
     root_str = str(Path(root))
     return Config(
@@ -47,7 +52,7 @@ def default_config(root: Path | str, name: str, created_at: str | None = None) -
             "planner": ModelProfile(
                 provider="openai_compatible",
                 base_url="http://localhost:11434/v1",
-                model="qwen3:32b",
+                model="",
                 capabilities=ModelCapabilities(
                     tools=False, json_schema="partial", vision=False, embeddings=False
                 ),
@@ -55,7 +60,7 @@ def default_config(root: Path | str, name: str, created_at: str | None = None) -
             "embeddings": ModelProfile(
                 provider="openai_compatible",
                 base_url="http://localhost:11434/v1",
-                model="nomic-embed-text",
+                model="",
                 capabilities=ModelCapabilities(embeddings=True),
             ),
         },

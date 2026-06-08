@@ -61,6 +61,18 @@ class LLMError(ShelfError):
     """A problem configuring or calling the model gateway."""
 
 
+class ToolError(ShelfError):
+    """A tool could not run (bad args, unavailable, or handler failure).
+
+    The agent loop catches these and feeds the message back to the model as an
+    observation, so a single bad tool call doesn't abort the whole run.
+    """
+
+
+class AgentError(ShelfError):
+    """The agent loop could not make progress (e.g. no model, repeated parse failures)."""
+
+
 class FeatureNotReady(NotImplementedError, ShelfError):
     """A feature that is intentionally stubbed for a later phase was invoked.
 
