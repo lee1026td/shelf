@@ -60,8 +60,11 @@ and RAG retrieval for `/ask` (needs a vector index — deliberately deferred).
 same `ReplSession` on a TTY — a scrollable transcript, a bottom-docked input bordered by
 horizontal rules with a `>` prompt, a `/` command dropdown, and agent **tool calls as
 cards** with a live trace. Reuses every Rich renderer (a Console writes into the log) and
-the agent's `event_sink`; blocking commands run in a thread worker. Review/watch/diff
-screens + full palette are later Phase-5 increments.
+the agent's `event_sink`; blocking commands run in a thread worker. It also wires the
+session's `asker` to a queue-backed prompt (`_tui_asker`): the worker blocks on the next
+submitted line, so the guided `/model` picker (role → provider → **custom endpoint URL** →
+model) and the egress confirms (web search, remote LLM) work in the TUI exactly as in the
+line REPL. Review/watch/diff screens + full palette are later Phase-5 increments.
 
 Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
 `shelf.watcher`, `shelf.notion`, `shelf.mcp`. Do **not** quietly implement stubs as side

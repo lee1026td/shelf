@@ -11,6 +11,8 @@ worker so the UI stays responsive and scrollable.
 
 from __future__ import annotations
 
+import queue
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
@@ -89,12 +91,21 @@ class ShelfApp(App):
             highlight=False,
             soft_wrap=False,
         )
+        # An interactive prompt queue lets the blocking ``/model`` picker (and any other
+        # ``_asker``-driven flow in the session) run inside the worker thread: the picker
+        # calls ``_tui_asker`` synchronously, which blocks the worker on this queue until
+        # the user submits a line that ``on_input_submitted`` routes here instead of
+        # starting a new command.
+        self._prompt_queue: queue.Queue[str] = queue.Queue()
+        self._awaiting_input = False  # True while the worker is blocked in ``_tui_asker``
+        self._busy = False  # True while a command worker is running (no concurrent run)
         self._session = ReplSession(
             workspace,
             console=self._console,
             gateway=gateway,
             fetcher=fetcher,
             client=client,
+            asker=self._tui_asker,
             event_sink=self._event_sink,
         )
         self._matches: list = []
@@ -111,6 +122,7 @@ class ShelfApp(App):
         self._log = self.query_one("#log", RichLog)
         self._palette = self.query_one("#palette", OptionList)
         self._input = self.query_one("#entry", Input)
+        self._prompt_label = self.query_one("#prompt", Static)
         self._palette.display = False
         self._console.width = max(40, self.size.width - 4)
         self._input.focus()
@@ -135,8 +147,40 @@ class ShelfApp(App):
             renderable = Text(f"  {message}", style=_EVENT_STYLES.get(kind, "dim"))
         self.call_from_thread(self.write_renderable, renderable)
 
+    # --- interactive prompts (the /model picker, egress confirms) ------------
+    def _tui_asker(self, prompt: str) -> str:
+        """Synchronous ``_asker`` for the session, called from the worker thread.
+
+        Shows ``prompt`` in the transcript, blocks the worker until the user submits a
+        line (delivered by ``on_input_submitted`` via ``_prompt_queue``), then returns it.
+        This is what re-enables the guided ``/model`` provider/endpoint picker inside the
+        TUI - the picker drives it exactly as it does the line REPL's prompt_toolkit asker.
+        """
+        self._sink.flush()  # surface any buffered (newline-less) output before the prompt
+        self.call_from_thread(self._begin_prompt, prompt)
+        line = self._prompt_queue.get()  # blocks this worker thread only
+        self.call_from_thread(self._end_prompt)
+        return line
+
+    def _begin_prompt(self, prompt: str) -> None:
+        """Enter input-wait mode (UI thread): echo the prompt, retarget the input bar."""
+        self._awaiting_input = True
+        self.write_renderable(Text(prompt, style="bold yellow"))
+        self._prompt_label.update("?")
+        self._input.placeholder = "type your answer, then Enter (blank to cancel)"
+        self._hide_palette()
+        self._input.focus()
+
+    def _end_prompt(self) -> None:
+        """Leave input-wait mode (UI thread); a command may still be running."""
+        self._awaiting_input = False
+        self._prompt_label.update(">")
+        self._input.placeholder = "ask, or type / for commands"
+
     # --- slash dropdown -----------------------------------------------------
     def on_input_changed(self, event: Input.Changed) -> None:
+        if self._awaiting_input:  # the line is an answer to a prompt, not a command
+            return
         value = event.value
         if value.startswith("/") and " " not in value:
             self._show_palette(value[1:].lower())
@@ -183,9 +227,16 @@ class ShelfApp(App):
         line = event.value
         self._input.value = ""
         self._hide_palette()
+        if self._awaiting_input:  # hand the line to the blocked picker/asker, echo it
+            self.write_renderable(Text(f"> {line}", style="dim"))
+            self._prompt_queue.put(line)
+            return
+        if self._busy:  # a command is running but not asking - ignore stray input
+            return
         if not line.strip():
             return
         self.write_renderable(Text(f"you> {line}", style="bold"))
+        self._busy = True
         self._run_line(line)
 
     @work(thread=True, exclusive=True)
@@ -196,6 +247,7 @@ class ShelfApp(App):
             self.call_from_thread(self.write_renderable, Text(f"Error: {exc}", style="red"))
         finally:
             self._sink.flush()
+            self._busy = False
         if not self._session.running:
             self.call_from_thread(self.exit)
 
