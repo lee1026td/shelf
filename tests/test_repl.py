@@ -9,6 +9,7 @@ from shelf.errors import LLMError
 from shelf.ingestion import import_path
 from shelf.llm import ModelGateway
 from shelf.repl.session import ReplSession, run_repl
+from shelf.services import set_model
 from shelf.store import Store
 from tests.fixtures import FakeChatClient, FakeFetcher, ScriptedChatClient
 
@@ -60,11 +61,24 @@ def test_unimplemented_slash_announces_phase(workspace):
     assert session.running is True
 
 
-def test_free_text_asks_the_library(workspace):
+def test_free_text_routes_through_agent(workspace):
+    # Free text (no slash) is agentic now: the model routes over read-only tools and the
+    # final answer is printed. A lone 'final' reply exercises the path without tool calls.
+    set_model(workspace, "planner", model="qwen3:8b")  # persisted so the model check passes
+    gateway = ModelGateway(
+        load_config(workspace.config_path),
+        client=ScriptedChatClient(['{"tool":"final","args":{"answer":"the answer"}}']),
+    )
     console = _rec()
-    session = ReplSession(workspace, console=console, gateway=_gateway(workspace, "the answer"))
+    session = ReplSession(workspace, console=console, gateway=gateway)
     session.handle("무엇이든 물어봐")
     assert "the answer" in console.export_text()
+
+
+def test_free_text_without_model_prompts_for_model(workspace):
+    console = _rec()
+    ReplSession(workspace, console=console).handle("무엇이든 물어봐")
+    assert "No model configured" in console.export_text()
 
 
 def test_exit_stops_loop(workspace):

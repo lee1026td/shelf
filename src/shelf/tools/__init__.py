@@ -36,4 +36,10 @@ def build_default_registry() -> ToolRegistry:
         ["library_search", "fetch_url"],
         description="Read library + sources to synthesize a cited document (no proposing).",
     )
+    registry.register_toolset(
+        "answer",
+        ["library_search", "fetch_url", "web_search"],
+        description="Answer a question from the library (and the web when enabled); "
+        "read-only, no proposing.",
+    )
     return registry

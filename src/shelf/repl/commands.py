@@ -31,7 +31,7 @@ SLASH_COMMANDS: tuple[SlashCommand, ...] = (
     SlashCommand("sources", "List the source universe"),
     SlashCommand("save", "Mark an item as saved: /save <id>"),
     SlashCommand("mute", "Mute an item: /mute <id>"),
-    SlashCommand("ask", "Ask a question grounded in the library (or just type it)"),
+    SlashCommand("ask", "Quick library-grounded answer (no tools; plain text routes the agent)"),
     SlashCommand("summarize", "LLM-summarize an item: /summarize <id>"),
     SlashCommand("model", "Pick model: /model (role->provider->model) | show | list | set | use"),
     SlashCommand("explore", "Discover + propose sources and write a cited brief for a topic"),

@@ -62,9 +62,10 @@ def test_palette_hidden_for_plain_text(workspace):
     _run(scenario())
 
 
-def test_free_text_routes_to_chat(workspace):
+def test_free_text_routes_through_agent(workspace):
+    # Free text (no slash) drives the agent loop over the read-only 'answer' toolset.
     set_model(workspace, "planner", model="m")
-    client = FakeChatClient(reply="the answer")
+    client = ScriptedChatClient(['{"tool":"final","args":{"answer":"hi back"}}'])
 
     async def scenario():
         app = ShelfApp(workspace, client=client, fetcher=FakeFetcher(b""))
@@ -75,7 +76,35 @@ def test_free_text_routes_to_chat(workspace):
             await pilot.pause()
 
     _run(scenario())
-    assert client.calls  # the message went through the gateway
+    assert client.calls  # routed through the agent loop to the gateway
+
+
+def test_input_history_recall(workspace):
+    # Up/Down recall prior submissions; the in-progress draft is restored past the newest.
+    set_model(workspace, "planner", model="m")
+
+    async def scenario():
+        app = ShelfApp(workspace, client=FakeChatClient(), fetcher=FakeFetcher(b""))
+        async with app.run_test() as pilot:
+            inp = app.query_one("#entry", Input)
+            inp.value = "/status"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            inp.value = "/help"
+            await pilot.press("enter")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            await pilot.press("d", "r", "a")  # an in-progress draft
+            await pilot.press("up")
+            assert inp.value == "/help"
+            await pilot.press("up")
+            assert inp.value == "/status"
+            await pilot.press("down")
+            assert inp.value == "/help"
+            await pilot.press("down")
+            assert inp.value == "dra"
+
+    _run(scenario())
 
 
 def test_explore_through_tui_proposes_candidate(workspace):

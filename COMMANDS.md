@@ -22,7 +22,7 @@ default path is a guided flow.
 | `shelf search Q` | `/search` | ✅ | Keyword search over items (title/summary/url). |
 | `shelf sources` | `/sources` | ✅ | List the source universe by status. |
 | `shelf model [list\|set\|use]` | `/model` | ✅ | On a TTY, bare `/model` opens an interactive **picker** (role → provider → model): pick **planner** (chat) or **embeddings**, then a provider — Ollama / Custom OpenAI-compatible endpoint / OpenAI (Anthropic is parked — it needs a native adapter) — then the model. `/model planner` and `/model embeddings` jump straight to that role. A failed connection re-prompts the endpoint URL instead of faking success. `/model show` always prints the profile table + probe; `list [role]`, `set <role> <model> [--base-url]`, `use <model>` are the scripting layer. Remote endpoints prompt to enable `privacy.remote_llm` and read the key from `$SHELF_API_KEY` (never written to config). |
-| `shelf ask Q` | `/ask` | ✅ | Answer a question grounded in the library (also: type free text in the REPL). |
+| `shelf ask Q` | `/ask` | ✅ | Quick answer grounded in the library (tool-free). Plain free text instead runs the agent over the `answer` toolset. |
 | `shelf explore TOPIC` | `/explore` | ✅ | Agent-driven source discovery: searches (library + web), reads pages, **proposes** candidate sources to the review queue (never auto-watched), and writes a cited brief. Runs the `shelf.agent` harness over the `discovery` toolset; works with small local models. Web search is gated by `privacy.remote_search` (egress, off by default): in the chat (TUI + REPL) `/explore` offers to enable it (y/N, persisted); the CLI uses `--web`. Step budget is configurable: `--steps N` (CLI) / `/explore <topic> --steps N` (REPL), default 12. A live trace of each step + a stop reason are printed. |
 | `shelf track TOPIC` | `/track` | ✅ | Mark a topic as **tracked** with a refresh frequency (`--frequency weekly\|daily\|monthly`). Records intent only — sources stay in review until approved; periodic collection is the Phase-4 watcher. |
 | `shelf compile TOPIC` | `/compile` | ✅ | Compile a **cited** document from the library (`--kind brief\|landscape\|faq\|timeline`, `--steps N`). Runs the harness over the `compile` toolset (read-only) and saves the Markdown under `Compilations/`. |
@@ -55,11 +55,14 @@ shelf> /exit
   `/inbox`, `/search <q>`, `/sources`, `/save <id>`, `/mute <id>`, `/ask <q>`,
   `/summarize <id>`, `/model`, `/explore <topic>`, `/track <topic>`, `/compile <topic>`,
   `/help` (alias `/`, `/?`), `/exit` (aliases `/quit`, `/q`).
-- **Free text** (no leading `/`) is a chat with the model: it converses normally and
-  grounds in your library items only when relevant, citing the titles it used.
+- **Free text** (no leading `/`) is an **agentic** chat: it runs the agent loop over the
+  read-only `answer` toolset (`library_search` / `fetch_url` / `web_search` when enabled),
+  so the model can search and read before answering, with a live tool-call trace. It never
+  proposes or writes (that's `/explore`). `/ask <q>` stays the lighter, tool-free
+  library-grounded answer.
 - Every other slash command is recognized and announces its phase (see §2).
 - REPL input: prompt_toolkit (history/editing) on a TTY; `input()` fallback when piped.
-  The TUI input adds the `/` command dropdown and Tab-completion.
+  The TUI input adds the `/` command dropdown, Tab-completion, and Up/Down history recall.
 
 ### `shelf init`
 ```

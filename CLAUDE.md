@@ -52,9 +52,12 @@ repair + bounded retries, so small local models work. Commands on it: `/explore`
 (discover → propose candidates to the review queue, never auto-watch → cited brief;
 live step trace; `--steps` budget), `/compile` (cited brief/landscape from the library
 via the `compile` skill → `Compilations/`), `/track` (mark a topic tracked + frequency;
-collection itself is Phase 4). Web search (`web_search` tool) POSTs to DuckDuckGo and
-is gated by `privacy.remote_search`. Still open in Phase 3: full 9-axis source scoring
-and RAG retrieval for `/ask` (needs a vector index — deliberately deferred).
+collection itself is Phase 4). **Plain free text** (no slash) is also agentic now: it runs
+the loop over the read-only `answer` toolset (`library_search`/`fetch_url`/`web_search`),
+`shelf.discovery.answer_question` — `/ask` stays the lighter tool-free library Q&A. Web
+search (`web_search` tool) POSTs to DuckDuckGo and is gated by `privacy.remote_search`.
+Still open in Phase 3: full 9-axis source scoring and RAG retrieval for `/ask` (needs a
+vector index — deliberately deferred).
 
 **Phase 5 TUI, first slice** (`shelf.tui`, depends on `textual`): `ShelfApp` fronts the
 same `ReplSession` on a TTY — a scrollable transcript, a bottom-docked input bordered by
@@ -64,7 +67,9 @@ the agent's `event_sink`; blocking commands run in a thread worker. It also wire
 session's `asker` to a queue-backed prompt (`_tui_asker`): the worker blocks on the next
 submitted line, so the guided `/model` picker (role → provider → **custom endpoint URL** →
 model) and the egress confirms (web search, remote LLM) work in the TUI exactly as in the
-line REPL. Review/watch/diff screens + full palette are later Phase-5 increments.
+line REPL. The TUI keeps the Rich renderers' real Unicode box-drawing (┌─│┘); on legacy
+cmd.exe its font may draw box verticals with gaps, so Windows Terminal / VS Code render
+crispest. Review/watch/diff screens + full palette are later Phase-5 increments.
 
 Stubs that still raise `shelf.errors.FeatureNotReady` (clear interface, no behavior):
 `shelf.watcher`, `shelf.notion`, `shelf.mcp`. Do **not** quietly implement stubs as side

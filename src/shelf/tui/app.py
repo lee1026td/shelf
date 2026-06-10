@@ -109,10 +109,20 @@ class ShelfApp(App):
             event_sink=self._event_sink,
         )
         self._matches: list = []
+        # Submitted lines for Up/Down recall (the TUI Input has no history of its own,
+        # unlike the line REPL's prompt_toolkit). ``_hist_pos`` is None when not browsing;
+        # ``_hist_draft`` holds the in-progress line so Down can restore it.
+        self._history: list[str] = []
+        self._hist_pos: int | None = None
+        self._hist_draft = ""
+        self._navigating = False  # True while a history recall is setting the input value
 
     # --- layout -------------------------------------------------------------
     def compose(self) -> ComposeResult:
-        yield RichLog(id="log", highlight=False, markup=False, wrap=True)
+        # wrap=False: the Console already wraps every line to its width (== the log's
+        # content width), so we render those lines verbatim. With wrap=True, RichLog
+        # re-wraps each line at a stale default (~80 cols), which shreds wide tables/panels.
+        yield RichLog(id="log", highlight=False, markup=False, wrap=False)
         yield OptionList(id="palette")
         with Horizontal(id="inputbar"):
             yield Static(">", id="prompt")
@@ -179,6 +189,9 @@ class ShelfApp(App):
 
     # --- slash dropdown -----------------------------------------------------
     def on_input_changed(self, event: Input.Changed) -> None:
+        if self._navigating:  # value set by history recall - don't pop the palette
+            self._navigating = False
+            return
         if self._awaiting_input:  # the line is an answer to a prompt, not a command
             return
         value = event.value
@@ -236,8 +249,47 @@ class ShelfApp(App):
         if not line.strip():
             return
         self.write_renderable(Text(f"you> {line}", style="bold"))
+        self._history.append(line)
+        self._hist_pos = None
         self._busy = True
         self._run_line(line)
+
+    # --- input history (Up / Down) ------------------------------------------
+    def on_key(self, event) -> None:
+        """Up/Down recall previous inputs when the palette is closed and not mid-prompt."""
+        if event.key not in ("up", "down"):
+            return
+        if self._awaiting_input or self._palette.display:
+            return  # let the prompt/palette own the arrows
+        (self._history_prev if event.key == "up" else self._history_next)()
+        event.stop()
+        event.prevent_default()
+
+    def _history_prev(self) -> None:
+        if not self._history:
+            return
+        if self._hist_pos is None:
+            self._hist_draft = self._input.value
+            self._hist_pos = len(self._history) - 1
+        elif self._hist_pos > 0:
+            self._hist_pos -= 1
+        self._set_input(self._history[self._hist_pos])
+
+    def _history_next(self) -> None:
+        if self._hist_pos is None:
+            return
+        if self._hist_pos < len(self._history) - 1:
+            self._hist_pos += 1
+            self._set_input(self._history[self._hist_pos])
+        else:
+            self._hist_pos = None
+            self._set_input(self._hist_draft)
+
+    def _set_input(self, value: str) -> None:
+        self._navigating = True
+        self._input.value = value
+        self._input.cursor_position = len(value)
+        self._hide_palette()
 
     @work(thread=True, exclusive=True)
     def _run_line(self, line: str) -> None:

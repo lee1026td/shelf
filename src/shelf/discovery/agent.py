@@ -100,6 +100,65 @@ def explore_topic(
 
 
 @dataclass
+class AnswerOutcome:
+    """Result of an agentic free-text answer (the chat surface's tool routing)."""
+
+    question: str
+    answer: str
+    steps: int = 0
+    stopped_reason: str = "final"
+
+
+def answer_question(
+    workspace: Workspace,
+    gateway: ModelGateway,
+    question: str,
+    *,
+    store: Store,
+    fetcher: Fetcher | None = None,
+    registry: ToolRegistry | None = None,
+    config: Config | None = None,
+    max_steps: int = 6,
+    on_event: Callable[[str, str], None] | None = None,
+) -> AnswerOutcome:
+    """Answer a free-text question by letting the agent route over read-only tools.
+
+    This is what plain chat input (no slash command) runs: the model decides when to
+    ``library_search`` / ``fetch_url`` / ``web_search`` (web gated by
+    ``privacy.remote_search``) and returns a cited answer. Nothing is proposed or written
+    — the watchlist and review queue are untouched (that is ``/explore``'s job).
+    """
+    question = question.strip()
+    config = config or load_config(workspace.config_path)
+    registry = registry or build_default_registry()
+    fetcher = fetcher or HttpFetcher()
+
+    ctx = ToolContext(
+        workspace=workspace,
+        store=store,
+        gateway=gateway,
+        fetcher=fetcher,
+        config=config,
+        scratch={"question": question},
+    )
+    goal = (
+        "Answer the user's question. Prefer the local library (library_search); fetch a "
+        "source with fetch_url when you need its full text; use web_search only if the "
+        "library is insufficient and it is enabled. Cite the sources you rely on.\n\n"
+        f"Question: {question}"
+    )
+    result = AgentLoop(gateway, registry, ctx).run(
+        goal, toolset="answer", max_steps=max_steps, on_event=on_event
+    )
+    return AnswerOutcome(
+        question=question,
+        answer=result.answer,
+        steps=len(result.steps),
+        stopped_reason=result.stopped_reason,
+    )
+
+
+@dataclass
 class CompileOutcome:
     """Result of a ``/compile`` run."""
 

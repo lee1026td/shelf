@@ -21,7 +21,7 @@ from rich.console import Console
 from rich.table import Table
 
 from shelf.config import Config, load_config
-from shelf.discovery import compile_topic, explore_topic
+from shelf.discovery import answer_question, compile_topic, explore_topic
 from shelf.errors import ShelfError
 from shelf.ingestion import Fetcher, clip_url, import_path
 from shelf.llm import ModelGateway, ask_library, summarize_item
@@ -208,9 +208,38 @@ class ReplSession:
         }
 
     def _handle_text(self, text: str) -> None:
-        # Free text is a chat: conversational, grounded in the library when relevant
-        # (Phase 2). Discovery/web routing arrives in Phase 3.
-        self._answer(text)
+        # Free text (no slash) is an agentic chat: the model routes over read-only tools
+        # (library_search / fetch_url / web_search) and returns a cited answer. `/ask` keeps
+        # the lighter, tool-free library Q&A (`_answer`) for a quick grounded response.
+        config = load_config(self.workspace.config_path)
+        if config.planner_model == "none":
+            self.console.print(
+                "No model configured. Run /model to pick one first.", style="yellow"
+            )
+            return
+        try:
+            gateway = self._get_gateway()
+            with Store.open(self.workspace.db_path) as store:
+                outcome = answer_question(
+                    self.workspace,
+                    gateway,
+                    text,
+                    store=store,
+                    fetcher=self.fetcher,
+                    config=config,
+                    on_event=self._event_printer(),
+                )
+        except ShelfError as exc:
+            self.console.print(f"Error: {exc}", style="red")
+            return
+        if not outcome.answer.strip():
+            self.console.print(
+                "(the model returned an empty answer - try a larger model "
+                "or a non-thinking one)",
+                style="yellow",
+            )
+            return
+        self.console.print(outcome.answer, highlight=False, markup=False)
 
     def _handle_ask(self, arg: str) -> None:
         if not arg:
@@ -693,7 +722,7 @@ class ReplSession:
             )
         self.console.print(table)
         self.console.print(
-            "Type a question in plain text to ask the library. /exit to quit.",
+            "Type a question in plain text for an agentic answer (uses tools). /exit to quit.",
             style="dim",
         )
 
